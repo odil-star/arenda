@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Договор аренды № {{ lease.pk }}</title>
+  <style>
+    @page { size: A4; margin: 20mm; }
+    body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 11pt; line-height: 1.45; }
+    h1 { text-align: center; font-size: 15pt; margin-bottom: 4pt; }
+    .center { text-align: center; color: #444; margin-bottom: 14pt; }
+    h2 { font-size: 12pt; margin: 14pt 0 4pt; }
+    table { width: 100%; border-collapse: collapse; margin-top: 6pt; }
+    th, td { border: 1px solid #888; padding: 3pt 6pt; text-align: left; }
+    .sign { margin-top: 36pt; width: 100%; }
+    .sign td { border: none; width: 50%; vertical-align: top; }
+  </style>
+</head>
+<body>
+  <h1>ДОГОВОР АРЕНДЫ № {{ lease.pk }}</h1>
+  <p class="center">{{ today|date:"d.m.Y" }}</p>
+
+  <h2>1. Стороны</h2>
+  <p><b>Арендодатель:</b> {{ owner.full_name }}{% if owner.passport_data %}, паспорт: {{ owner.passport_data }}{% endif %}{% if owner.phone %}, тел.: {{ owner.phone }}{% endif %}.</p>
+  <p><b>Арендатор:</b> {{ tenant.full_name }}{% if tenant.passport %}, паспорт: {{ tenant.passport }}{% endif %}{% if tenant.phone %}, тел.: {{ tenant.phone }}{% endif %}.</p>
+
+  <h2>2. Предмет договора</h2>
+  <p>Арендодатель передаёт Арендатору во временное пользование объект «{{ property.name }}», расположенный по адресу: {{ property.address }}{% if property.area_m2 %}, площадью {{ property.area_m2 }} м²{% endif %}.</p>
+
+  {% if inventory %}
+  <h2>Состав передаваемого имущества</h2>
+  <p>Вместе с объектом Арендатору передаётся следующее:</p>
+  <table>
+    <thead><tr><th style="width:12%">№</th><th>Наименование</th></tr></thead>
+    <tbody>
+      {% for item in inventory %}<tr><td>{{ forloop.counter }}</td><td>{{ item }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <p>Арендатор обязуется вернуть имущество в состоянии, в котором оно было получено, с учётом нормального износа.</p>
+  {% endif %}
+
+  <h2>3. Срок</h2>
+  <p>С {{ lease.start_date|date:"d.m.Y" }} по {{ lease.end_date|date:"d.m.Y" }}.</p>
+
+  <h2>4. Оплата</h2>
+  <p>Арендная плата — {{ rent }} сум в месяц, вносится не позднее {{ lease.payment_day }}-го числа каждого месяца.{% if lease.deposit_amount %} Залог — {{ deposit }} сум.{% endif %}</p>
+
+  {% if payments %}
+  <table>
+    <thead><tr><th>№</th><th>Срок оплаты</th><th>Сумма, сум</th></tr></thead>
+    <tbody>
+      {% for p in payments %}
+      <tr><td>{{ forloop.counter }}</td><td>{{ p.due_date|date:"d.m.Y" }}</td><td>{{ p.amount_due_text }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if lease.get_payment_details %}<h2>Реквизиты для оплаты</h2><p style="white-space:pre-line">{{ lease.get_payment_details }}</p>{% endif %}
+
+  {% if lease.notes %}<h2>5. Дополнительные условия</h2><p>{{ lease.notes }}</p>{% endif %}
+
+  <table class="sign">
+    <tr>
+      <td>Арендодатель<br><br>_______________ / {{ owner.full_name }}</td>
+      <td>Арендатор<br><br>_______________ / {{ tenant.full_name }}</td>
+    </tr>
+  </table>
+</body>
+</html>

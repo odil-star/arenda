@@ -1,0 +1,341 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/onest";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Палитра: тёмная тема — основная (банковский стиль), светлая — опция.
+ * Акцент — мятный. Статусы разведены по оттенку и всегда дублируются иконкой и текстом.
+ */
+:root {
+  --background: #f6f7f9;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+  --popover: #ffffff;
+  --popover-foreground: var(--foreground);
+  --muted: #eff1f4;
+  --muted-foreground: #5b6576;
+  --border: #e3e7ec;
+  --input: #cfd5dd;
+  --ring: #059669;
+  --primary: #047857;
+  --primary-foreground: #ffffff;
+  --accent: #e6f6ef;
+  --accent-foreground: #065f46;
+  --glow: transparent;
+  --sand: #b4975a;
+  --sand-soft: #f6efe0;
+  /* дорожка кольца прогресса */
+  --track: #e6e9ee;
+
+  --success: #15803d;
+  --success-soft: #e8f6ec;
+  --warning: #b45309;
+  --warning-soft: #fdf3e2;
+  --danger: #c2410c;
+  --danger-soft: #fdecea;
+  --info: #1d4ed8;
+  --info-soft: #e8effd;
+  --neutral-soft: #eef0f3;
+  --neutral: #5b6576;
+}
+
+.dark {
+  --background: #0b0f14;
+  --foreground: #e5e7eb;
+  --card: #121821;
+  --card-foreground: var(--foreground);
+  --popover: #161d27;
+  --popover-foreground: var(--foreground);
+  --muted: #19212c;
+  --muted-foreground: #94a3b8;
+  --border: #1f2936;
+  --input: #2b3644;
+  --ring: #34d399;
+  --primary: #34d399;
+  --primary-foreground: #04261b;
+  --accent: #0f2a22;
+  --accent-foreground: #6ee7b7;
+  /* мягкое свечение у графиков и акцентных блоков */
+  --glow: rgb(52 211 153 / 0.28);
+  --sand: #c9a86a;
+  --sand-soft: #2a2416;
+  --track: #1d2733;
+
+  --success: #4ade80;
+  --success-soft: #11291b;
+  --warning: #fbbf24;
+  --warning-soft: #2b2210;
+  --danger: #f87171;
+  --danger-soft: #311719;
+  --info: #60a5fa;
+  --info-soft: #132235;
+  --neutral-soft: #1a222d;
+  --neutral: #94a3b8;
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Onest Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-glow: var(--glow);
+  --color-sand: var(--sand);
+  --color-sand-soft: var(--sand-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-neutral: var(--neutral);
+  --color-neutral-soft: var(--neutral-soft);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+}
+
+/*
+ * Синяя акцентная тема публичного поиска объявлений (/listings): класс theme-blue ставится на <html>,
+ * чтобы цвет получили и порталы (выпадающие списки, просмотр фото). Логотип остаётся фирменным зелёным.
+ */
+:root.theme-blue {
+  --ring: #3b82f6;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --accent: #e8f0fe;
+  --accent-foreground: #1e40af;
+}
+:root.dark.theme-blue {
+  --ring: #60a5fa;
+  --primary: #60a5fa;
+  --primary-foreground: #06182f;
+  --accent: #0f1f38;
+  --accent-foreground: #93c5fd;
+  --glow: rgb(96 165 250 / 0.28);
+}
+:root.theme-blue .brand-mark {
+  --primary: #047857;
+  --primary-foreground: #ffffff;
+  --glow: transparent;
+}
+:root.dark.theme-blue .brand-mark {
+  --primary: #34d399;
+  --primary-foreground: #04261b;
+  --glow: rgb(52 211 153 / 0.28);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* Radix прячет полосу прокрутки при открытом select/диалоге — без этого вся страница дёргается вширь */
+    scrollbar-gutter: stable;
+  }
+  /* iOS Safari: поля даты выпирают из сетки и получают свою высоту */
+  input[type="date"],
+  input[type="month"],
+  input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    max-width: 100%;
+    text-align: left;
+  }
+  input[type="date"]::-webkit-date-and-time-value,
+  input[type="month"]::-webkit-date-and-time-value {
+    text-align: left;
+    min-height: 1.5em;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * «Жидкое стекло» (iOS 26 / Instagram): сильное размытие с повышенной насыщенностью,
+ * блик по верхней кромке, тонкая светящаяся окантовка и мягкая тень.
+ */
+.liquid-glass {
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.28)),
+    rgba(255, 255, 255, 0.2);
+  -webkit-backdrop-filter: blur(22px) saturate(190%) brightness(1.04);
+  backdrop-filter: blur(22px) saturate(190%) brightness(1.04);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 12px 32px rgba(15, 23, 42, 0.18),
+    0 2px 6px rgba(15, 23, 42, 0.08),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.06),
+    inset 0 0 20px rgba(255, 255, 255, 0.35);
+}
+.dark .liquid-glass {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.03) 55%, rgba(255, 255, 255, 0.08)),
+    rgba(30, 38, 50, 0.28);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 22px rgba(255, 255, 255, 0.06);
+}
+/* зеркальный блик: светлая дуга вдоль верхней кромки */
+.liquid-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(120% 90% at 50% -30%, rgba(255, 255, 255, 0.5), transparent 55%);
+  opacity: 0.55;
+}
+.dark .liquid-glass::before {
+  background: radial-gradient(120% 90% at 50% -30%, rgba(255, 255, 255, 0.28), transparent 55%);
+}
+/* подсветка активной вкладки: «капля» стекла внутри стекла */
+.liquid-pill {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.45));
+  box-shadow:
+    0 2px 8px rgba(15, 23, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.05);
+}
+.dark .liquid-pill {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.1));
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/*
+ * Орнамент: восьмиконечная звезда (мотив гириха). Рисуется маской,
+ * поэтому цвет задаётся обычным background-color и работает в обеих темах.
+ */
+@utility ornament {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56' fill='none' stroke='black' stroke-width='1.1'%3E%3Crect x='17' y='17' width='22' height='22'/%3E%3Crect x='17' y='17' width='22' height='22' transform='rotate(45 28 28)'/%3E%3Ccircle cx='28' cy='28' r='4'/%3E%3Cpath d='M0 0l7 7M56 0l-7 7M0 56l7-7M56 56l-7-7M28 0v3M28 56v-3M0 28h3M56 28h-3'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56' fill='none' stroke='black' stroke-width='1.1'%3E%3Crect x='17' y='17' width='22' height='22'/%3E%3Crect x='17' y='17' width='22' height='22' transform='rotate(45 28 28)'/%3E%3Ccircle cx='28' cy='28' r='4'/%3E%3Cpath d='M0 0l7 7M56 0l-7 7M0 56l7-7M56 56l-7-7M28 0v3M28 56v-3M0 28h3M56 28h-3'/%3E%3C/svg%3E");
+  -webkit-mask-size: 56px 56px;
+  mask-size: 56px 56px;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@utility animate-fade-in {
+  animation: fade-in 150ms ease-out;
+}
+@utility animate-rise-in {
+  animation: rise-in 260ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@utility animate-sheet-up {
+  animation: sheet-up 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@utility animate-pop {
+  animation: pop 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@utility animate-draw {
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: draw 420ms 180ms ease-out forwards;
+}
