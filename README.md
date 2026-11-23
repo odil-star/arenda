@@ -194,6 +194,39 @@ docker compose exec django python manage.py createsuperuser
 Роль определяется запросом `/api/me/`: для жильца он возвращает 403 — это штатное поведение, не ошибка.
 Фронтенд (`frontend/`) описан в [frontend/README.md](frontend/README.md).
 
+<div align="center">
+
+| | | |
+|:---:|:---:|:---:|
+| [💻 **Локальный запуск**](#-локальный-запуск) | [🔧 **Переменные**](#-переменные-окружения) | [🧱 **Правила данных**](#-правила-данных) |
+| [🔌 **Эндпоинты**](#-основные-эндпоинты) | [🧪 **Примеры curl**](#-примеры-curl) | [🏠 **Жильцы**](#-подключение-жильцов) |
+| [🤖 **Telegram**](#-напоминания-и-telegram) | [💳 **Payme и Click**](#-платежи-payme-и-click) | [🚢 **Продакшен**](#-продакшен-и-https) |
+| [📈 **Мониторинг**](#-api-документация-и-мониторинг) | [📱 **SMS**](#-sms-вход-жильца) | [💸 **Пеня**](#-пеня-за-просрочку) |
+
+</div>
+
+> 💡 Большие разделы свёрнуты — нажмите **«Развернуть раздел»**.
+
+## 🗂 Структура проекта
+
+```text
+rent/
+├── backend/            🐍 Django-монолит
+│   ├── config/         ⚙️  настройки (dev / prod), Celery, urls
+│   ├── core/           🛡  админ-API платформы, аудит, тарифы
+│   ├── users/          👤 пользователи и профили
+│   ├── support/        🎧 обращения в поддержку
+│   ├── leasing/        🏠 объекты, арендаторы, договоры, PDF
+│   ├── finance/        💰 платежи, расходы, отчёты
+│   ├── billing/        💳 вебхуки Payme и Click
+│   ├── portal/         🧑 кабинет жильца, SMS, push, passkeys
+│   └── reminders/      🤖 Telegram-бот и напоминания
+├── frontend/           ⚛️  React + Vite + Tailwind
+├── nginx/              🌐 образ с фронтендом и HTTPS
+├── scripts/            🛠  backup, gen-secrets, init-letsencrypt
+└── docker-compose.yml  🐳 весь стек одной командой
+```
+
 ## 💻 Локальный запуск
 
 По умолчанию (dev) используется SQLite-файл `backend/db.sqlite3` — ничего настраивать не нужно.
@@ -215,6 +248,9 @@ python manage.py run_bot                                   # Telegram-бот
 
 ## 🔧 Переменные окружения
 
+<details>
+<summary><b>👉 Развернуть раздел</b></summary>
+
 Полный список с комментариями — [backend/.env.example](backend/.env.example).
 
 | Группа | Переменные |
@@ -226,7 +262,12 @@ python manage.py run_bot                                   # Telegram-бот
 | Платежи | `PAYME_MERCHANT_ID`, `PAYME_KEY`, `PAYME_CHECKOUT_URL`, `CLICK_SERVICE_ID`, `CLICK_MERCHANT_ID`, `CLICK_SECRET_KEY` |
 | Файлы (S3/R2/MinIO) | `AWS_STORAGE_BUCKET_NAME`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_ENDPOINT_URL`, `AWS_S3_REGION_NAME` |
 
+</details>
+
 ## 🧱 Правила данных
+
+<details>
+<summary><b>👉 Развернуть раздел</b></summary>
 
 - Каждая бизнес-таблица наследует `OwnedModel` (владелец берётся из JWT, а не из тела запроса).
   Чужой объект — **404**, внешние ключи принимают только свои объекты.
@@ -238,7 +279,12 @@ python manage.py run_bot                                   # Telegram-бот
   возвраты, удаления, загрузки файлов, экспорт).
 - Статус платежа (`paid | partial | overdue | pending`) вычисляется, не хранится.
 
+</details>
+
 ## 🔌 Основные эндпоинты
+
+<details>
+<summary><b>👉 Развернуть раздел</b></summary>
 
 | Метод | URL | Описание |
 |---|---|---|
@@ -257,7 +303,12 @@ python manage.py run_bot                                   # Telegram-бот
 | GET | `/api/reports/export/?file=csv\|xlsx&…` | тот же отчёт файлом |
 | GET | `/api/dashboard/`, `/api/audit/` | сводка, журнал действий |
 
+</details>
+
 ## 🧪 Примеры curl
+
+<details>
+<summary><b>👉 Развернуть раздел</b></summary>
 
 ```bash
 API=http://localhost/api
@@ -287,7 +338,12 @@ curl "$API/reports/export/?date_from=2026-01-01&date_to=2026-12-31&file=xlsx" -H
 curl $API/leases/1/contract/ -H "$AUTH" -o contract.pdf
 ```
 
+</details>
+
 ## 🏠 Подключение жильцов
+
+<details>
+<summary><b>👉 Развернуть раздел</b></summary>
 
 Арендодатель приглашает жильца; жилец создаёт аккаунт (`role=tenant`) и видит только **свои** договоры и платежи.
 Три способа — один результат (`Tenant.user` привязан к аккаунту):
@@ -364,6 +420,8 @@ curl $API/tenant/leases/ -H "Authorization: Bearer $TENANT_TOKEN"
 curl "$API/tenant/payments/?status=overdue" -H "Authorization: Bearer $TENANT_TOKEN"
 ```
 
+</details>
+
 ## 🤖 Напоминания и Telegram
 
 Celery beat ежедневно в 09:00 (Ташкент): арендатору — за 3 дня до срока, в день срока и при просрочке
@@ -393,6 +451,9 @@ Celery beat ежедневно в 09:00 (Ташкент): арендатору �
 
 ## 🚢 Продакшен и HTTPS
 
+<details>
+<summary><b>👉 Развернуть раздел</b></summary>
+
 Нужен сервер с Docker, DNS-запись домена на этот сервер и открытые порты 80 и 443.
 
 1. `cp .env.example .env` — задайте `DOMAIN`, `LETSENCRYPT_EMAIL`, `POSTGRES_PASSWORD`.
@@ -408,6 +469,8 @@ Celery beat ежедневно в 09:00 (Ташкент): арендатору �
    `scripts/backup.sh` сохраняет только БД, а копии файлов остаются на стороне хранилища.
 6. Бэкапы: `0 3 * * * cd /srv/rent && ./scripts/backup.sh /srv/backups` в cron.
 7. Webhook'и платежей: Payme — `https://<DOMAIN>/api/webhooks/payme/`, Click — `https://<DOMAIN>/api/webhooks/click/`.
+
+</details>
 
 ## 📈 API-документация и мониторинг
 
