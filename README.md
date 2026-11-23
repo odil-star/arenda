@@ -1,28 +1,200 @@
-# Управление арендой недвижимости
+<div align="center">
 
-SaaS для арендодателей в Узбекистане (1–100 объектов): объекты, арендаторы, договоры, график платежей,
-напоминания в Telegram, оплата через Payme/Click, отчёты.
+<img src="https://capsule-render.vercel.app/api?type=waving&height=220&color=0:6366F1,50:8B5CF6,100:EC4899&text=Arenda&fontSize=72&fontColor=ffffff&fontAlignY=38&desc=%D0%A3%D0%BF%D1%80%D0%B0%D0%B2%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5%20%D0%B0%D1%80%D0%B5%D0%BD%D0%B4%D0%BE%D0%B9%20%D0%BD%D0%B5%D0%B4%D0%B2%D0%B8%D0%B6%D0%B8%D0%BC%D0%BE%D1%81%D1%82%D0%B8&descAlignY=60&descSize=20" alt="Arenda — управление арендой недвижимости" width="100%"/>
 
-Стек: Django 5 + DRF · JWT (simplejwt) · PostgreSQL · Celery + Redis · aiogram 3 · WeasyPrint · S3 (django-storages).
-Один монолит, без лишних абстракций. Часовой пояс `Asia/Tashkent`, язык `ru`, даты-время в БД — UTC.
-Деньги — только целые числа в сумах.
+### 🏢 SaaS для арендодателей Узбекистана — от 1 до 100 объектов
 
-Фронтенд (`frontend/`, React + Vite) работает с этим API: кабинет арендодателя и кабинет жильца.
-Роль определяется запросом `/api/me/`: для жильца он возвращает 403 — это штатное поведение, не ошибка.
+*Объекты, жильцы, договоры, график платежей, напоминания в Telegram и оплата через Payme / Click — в одном месте.*
 
-## Запуск (Docker)
+<br/>
+
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Django](https://img.shields.io/badge/Django-5-092E20?style=for-the-badge&logo=django&logoColor=white)
+![DRF](https://img.shields.io/badge/DRF-REST_API-A30000?style=for-the-badge&logo=django&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+![Celery](https://img.shields.io/badge/Celery-37814A?style=for-the-badge&logo=celery&logoColor=white)
+
+![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=for-the-badge&logo=vite&logoColor=white)
+![Tailwind](https://img.shields.io/badge/Tailwind-v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Telegram](https://img.shields.io/badge/Telegram-aiogram_3-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)
+
+<br/>
+
+[🚀 Быстрый старт](#-быстрый-старт) ·
+[✨ Возможности](#-возможности) ·
+[🏗 Архитектура](#-архитектура) ·
+[🔌 API](#-основные-эндпоинты) ·
+[🚢 Продакшен](#-продакшен-и-https)
+
+</div>
+
+---
+
+## ✨ Возможности
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 👔 Кабинет арендодателя
+- 🏠 **Объекты** — квартиры, дома, коммерция, фото и документы
+- 👥 **Арендаторы** — карточки, приглашения по ссылке, QR и SMS
+- 📝 **Договоры** — автоматический **PDF**, продление и завершение в один клик
+- 📅 **График платежей** — генерируется вместе с договором, статусы считаются на лету
+- 📊 **Отчёты** — доход / расход / прибыль, экспорт в **CSV** и **XLSX**
+- 📸 **Фото и видео** состояния квартиры, показания счётчиков, расходы
+- 🧾 **Журнал действий** — кто, что и когда сделал
+
+</td>
+<td width="50%" valign="top">
+
+### 🧑‍💼 Кабинет жильца
+- 🔗 Вход по **приглашению**, **QR** или **коду из SMS**
+- 💰 Только **свои** договоры и платежи
+- 📤 Оплата по реквизитам и **загрузка чека** — деньги зачисляются после подтверждения
+- 🔔 Уведомления о новых фото и видео, **Web Push**
+- 🔐 Вход по **Passkey** (WebAuthn)
+- 📱 Установка как **PWA** на телефон
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 🤖 Автоматизация
+- ⏰ Ежедневно в **09:00** (Ташкент): напоминание за 3 дня, в день срока и при просрочке
+- 💬 **Telegram-бот** — `/balance`, `/pay_info`
+- 🌐 Шаблоны сообщений на **русском** и **узбекском**
+- ♻️ Идемпотентная рассылка — ни одного дубля
+
+</td>
+<td width="50%" valign="top">
+
+### 💳 Платежи
+- 🟦 **Payme** — JSON-RPC, суммы в тийинах
+- 🟩 **Click** — Prepare / Complete, проверка подписи
+- 🛡 Защита от двойного зачисления (`select_for_update` + уникальный ключ)
+- ⏱ Информационная **пеня** за просрочку
+
+</td>
+</tr>
+</table>
+
+> 🧩 **Дополнительно:** панель администратора платформы (объявления, аудит, имперсонация), объявления и поддержка,
+> два языка интерфейса (**ru / uz**), светлая и тёмная темы, адаптивный дизайн «телефон — прежде всего».
+
+---
+
+## 🏗 Архитектура
+
+```mermaid
+flowchart LR
+    subgraph Clients["👥 Клиенты"]
+        L["🏢 Арендодатель<br/>React PWA"]
+        T["🧑 Жилец<br/>React PWA"]
+        TG["💬 Telegram"]
+    end
+
+    subgraph Edge["🌐 Edge"]
+        N["nginx + Let's Encrypt"]
+    end
+
+    subgraph Core["⚙️ Django монолит"]
+        API["REST API<br/>DRF + JWT"]
+        W["Celery worker"]
+        B["Celery beat<br/>09:00 Ташкент"]
+        BOT["Бот aiogram 3"]
+    end
+
+    subgraph Data["💾 Данные"]
+        PG[("PostgreSQL")]
+        R[("Redis")]
+        S3[("S3 / R2 / MinIO")]
+    end
+
+    subgraph Ext["🔌 Внешние сервисы"]
+        PM["Payme"]
+        CL["Click"]
+        SMS["Eskiz SMS"]
+    end
+
+    L & T --> N --> API
+    TG <--> BOT
+    PM & CL -. вебхуки .-> API
+    API --> PG & S3
+    API --> R
+    B --> R --> W
+    W --> PG
+    W --> TG
+    W --> SMS
+    BOT --> PG
+```
+
+**Принципы:** один монолит без лишних абстракций · часовой пояс `Asia/Tashkent` · даты-время в БД — UTC ·
+деньги — **только целые числа в сумах** · интерфейс на `ru`.
+
+---
+
+## 🧰 Технологии
+
+| Слой | Что используем |
+|---|---|
+| 🐍 **Backend** | Django 5 · Django REST Framework · simplejwt · drf-spectacular (OpenAPI) |
+| 🗄 **Данные** | PostgreSQL (SQLite в dev) · Redis · S3-совместимое хранилище (django-storages) |
+| ⚡ **Фон** | Celery + Celery beat |
+| 📄 **Документы** | WeasyPrint (PDF-договоры и чеки) · openpyxl (XLSX) · qrcode |
+| 🔔 **Каналы** | aiogram 3 (Telegram) · Eskiz (SMS) · pywebpush · WebAuthn |
+| 🎨 **Frontend** | React 18 · Vite · TypeScript strict · Tailwind CSS v4 · Radix UI · TanStack Query |
+| 📝 **Формы / i18n** | React Hook Form + Zod · i18next (ru / uz) · Recharts |
+| 🚢 **Инфраструктура** | Docker Compose · nginx · certbot · Sentry |
+
+---
+
+## 🚀 Быстрый старт
 
 ```bash
-cp backend/.env.example backend/.env      # задайте SECRET_KEY, при необходимости токены
+git clone <repo-url> rent && cd rent
+cp backend/.env.example backend/.env        # задайте SECRET_KEY
 docker compose up --build
 docker compose exec django python manage.py createsuperuser
 ```
 
-Сервисы: `django` (gunicorn), `worker` и `beat` (Celery), `bot` (Telegram, long polling), `db`, `redis`,
-`nginx` (порт 80). API: http://localhost/api/ · админка: http://localhost/admin/.
-Интерфейс для разработки: `docker compose --profile dev up frontend`.
+<div align="center">
 
-## Запуск локально (без Docker)
+| 🌐 Что | 🔗 Где |
+|:---:|:---:|
+| API | http://localhost/api/ |
+| Swagger | http://localhost/api/docs/ (при `API_DOCS_ENABLED=True`) |
+| Админка | http://localhost/admin/ |
+| Интерфейс (dev) | `docker compose --profile dev up frontend` |
+
+</div>
+
+> 💡 Без Docker достаточно Python: по умолчанию используется SQLite, ничего настраивать не нужно —
+> см. [Локальный запуск](#-локальный-запуск).
+
+### 🗺 Что поднимается
+
+| Сервис | Роль |
+|---|---|
+| `django` | gunicorn, REST API |
+| `worker` · `beat` | Celery: фоновые задачи и ежедневные напоминания |
+| `bot` | Telegram-бот (long polling) |
+| `db` · `redis` | PostgreSQL и Redis |
+| `nginx` | порт 80, статика фронтенда и прокси к API |
+
+---
+
+# 📚 Документация
+
+Роль определяется запросом `/api/me/`: для жильца он возвращает 403 — это штатное поведение, не ошибка.
+Фронтенд (`frontend/`) описан в [frontend/README.md](frontend/README.md).
+
+## 💻 Локальный запуск
 
 По умолчанию (dev) используется SQLite-файл `backend/db.sqlite3` — ничего настраивать не нужно.
 PostgreSQL — через `DATABASE_URL`; в проде он обязателен.
@@ -41,7 +213,7 @@ python manage.py run_bot                                   # Telegram-бот
 `manage.py` использует `config.settings.dev`, `wsgi`/`celery` — `config.settings.prod`
 (`DEBUG=False`, обязательные `SECRET_KEY` и `ALLOWED_HOSTS`, защищённые cookie, HSTS, редирект на HTTPS).
 
-## Переменные окружения
+## 🔧 Переменные окружения
 
 Полный список с комментариями — [backend/.env.example](backend/.env.example).
 
@@ -54,7 +226,7 @@ python manage.py run_bot                                   # Telegram-бот
 | Платежи | `PAYME_MERCHANT_ID`, `PAYME_KEY`, `PAYME_CHECKOUT_URL`, `CLICK_SERVICE_ID`, `CLICK_MERCHANT_ID`, `CLICK_SECRET_KEY` |
 | Файлы (S3/R2/MinIO) | `AWS_STORAGE_BUCKET_NAME`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_ENDPOINT_URL`, `AWS_S3_REGION_NAME` |
 
-## Правила данных
+## 🧱 Правила данных
 
 - Каждая бизнес-таблица наследует `OwnedModel` (владелец берётся из JWT, а не из тела запроса).
   Чужой объект — **404**, внешние ключи принимают только свои объекты.
@@ -66,7 +238,7 @@ python manage.py run_bot                                   # Telegram-бот
   возвраты, удаления, загрузки файлов, экспорт).
 - Статус платежа (`paid | partial | overdue | pending`) вычисляется, не хранится.
 
-## Основные эндпоинты
+## 🔌 Основные эндпоинты
 
 | Метод | URL | Описание |
 |---|---|---|
@@ -85,7 +257,7 @@ python manage.py run_bot                                   # Telegram-бот
 | GET | `/api/reports/export/?file=csv\|xlsx&…` | тот же отчёт файлом |
 | GET | `/api/dashboard/`, `/api/audit/` | сводка, журнал действий |
 
-## Примеры curl
+## 🧪 Примеры curl
 
 ```bash
 API=http://localhost/api
@@ -115,7 +287,7 @@ curl "$API/reports/export/?date_from=2026-01-01&date_to=2026-12-31&file=xlsx" -H
 curl $API/leases/1/contract/ -H "$AUTH" -o contract.pdf
 ```
 
-## Подключение жильцов
+## 🏠 Подключение жильцов
 
 Арендодатель приглашает жильца; жилец создаёт аккаунт (`role=tenant`) и видит только **свои** договоры и платежи.
 Три способа — один результат (`Tenant.user` привязан к аккаунту):
@@ -192,7 +364,7 @@ curl $API/tenant/leases/ -H "Authorization: Bearer $TENANT_TOKEN"
 curl "$API/tenant/payments/?status=overdue" -H "Authorization: Bearer $TENANT_TOKEN"
 ```
 
-## Напоминания и Telegram
+## 🤖 Напоминания и Telegram
 
 Celery beat ежедневно в 09:00 (Ташкент): арендатору — за 3 дня до срока, в день срока и при просрочке
 (на 1-й, 4-й, 7-й… день); владельцу — одна сводка. Каждая отправка пишется в `NotificationLog`
@@ -203,14 +375,14 @@ Celery beat ежедневно в 09:00 (Ташкент): арендатору �
 отправляет код боту: `/start КОД`. Команды арендатора: `/balance`, `/pay_info`.
 Реквизиты для `/pay_info` — поле `payment_details` в `/api/me/`.
 
-## Платежи Payme / Click
+## 💳 Платежи Payme и Click
 
 - `POST /api/payments/{id}/invoice/` возвращает `payme_url` и `click_url` (если заданы ключи).
 - Payme: JSON-RPC на `/api/webhooks/payme/`, аккаунт `{"payment_id": …}`, суммы в тийинах, Basic `Paycom:<PAYME_KEY>`.
 - Click: Prepare/Complete на `/api/webhooks/click/`, подпись MD5 проверяется, `merchant_trans_id` = id платежа.
 - Идемпотентность: уникальный `(provider, external_id)` + `select_for_update`; повторный вебхук не зачисляет деньги дважды.
 
-## Допущения
+## 📌 Допущения
 
 - Даты оплаты: каждое `payment_day`-е число, начиная со `start_date`, строго до `end_date`. Если договор
   начат после `payment_day`, первая оплата — в следующем месяце.
@@ -219,7 +391,7 @@ Celery beat ежедневно в 09:00 (Ташкент): арендатору �
 - Файлы не раздаются как `/media/`: только через `/api/documents/{id}/download/` с проверкой владельца
   (для S3 — редирект на подписанную ссылку на 5 минут).
 
-## Продакшен (Docker, HTTPS)
+## 🚢 Продакшен и HTTPS
 
 Нужен сервер с Docker, DNS-запись домена на этот сервер и открытые порты 80 и 443.
 
@@ -237,27 +409,37 @@ Celery beat ежедневно в 09:00 (Ташкент): арендатору �
 6. Бэкапы: `0 3 * * * cd /srv/rent && ./scripts/backup.sh /srv/backups` в cron.
 7. Webhook'и платежей: Payme — `https://<DOMAIN>/api/webhooks/payme/`, Click — `https://<DOMAIN>/api/webhooks/click/`.
 
-## Документация API, мониторинг, бэкапы
+## 📈 API-документация и мониторинг
 
 - **OpenAPI/Swagger:** `/api/docs/` и `/api/schema/` (в dev включены; в проде — `API_DOCS_ENABLED=True`).
 - **Проверка живости:** `GET /api/health/` — `200` или `503` (БД и кэш), без авторизации.
 - **Sentry:** задайте `SENTRY_DSN` (в prod). Персональные данные не отправляются.
 - **Бэкапы:** `scripts/backup.sh` — дамп PostgreSQL и файлов, хранит 14 последних копий (запуск из cron).
 
-## Сброс пароля
+## 🔑 Сброс пароля
 
 `POST /api/auth/password-reset/` `{email}` — всегда 200 (не раскрывает, есть ли аккаунт); письмо со ссылкой
 `<FRONTEND_URL>/reset-password/<uid>/<token>`. `POST /api/auth/password-reset/confirm/` `{uid, token, password}`.
 Токен одноразовый. Почта настраивается `EMAIL_*` (по умолчанию письма печатаются в консоль).
 
-## SMS (вход жильца по коду)
+## 📱 SMS-вход жильца
 
 `SMS_BACKEND=eskiz` + `ESKIZ_EMAIL`, `ESKIZ_PASSWORD` (`ESKIZ_FROM`, по умолчанию `4546`). Токен Eskiz
 кэшируется и обновляется сам; сбои отправки не скрываются. Для разработки — `console` (код в лог).
 
-## Пеня за просрочку
+## 💸 Пеня за просрочку
 
 В договоре: `penalty_percent_per_day` (0–10, по умолчанию 0 = выключена) и `penalty_cap_percent` (0–100,
 по умолчанию 100). В платежах: `days_overdue` и `penalty` (процент от текущего остатка за каждый день,
 не выше лимита, округление вниз). Пеня **информационная**: в `amount_due` и в оплату через Payme/Click
 не входит — владелец взыскивает её отдельно.
+
+---
+
+<div align="center">
+
+Сделано с ❤️ в Узбекистане 🇺🇿 · Django + React
+
+<img src="https://capsule-render.vercel.app/api?type=waving&height=100&color=0:EC4899,50:8B5CF6,100:6366F1&section=footer" width="100%" alt=""/>
+
+</div>
