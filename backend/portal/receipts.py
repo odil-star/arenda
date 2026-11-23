@@ -7,6 +7,7 @@ from core.audit import log_action
 from leasing import services as lease_services
 from leasing.models import Payment
 from leasing.uploads import validate_upload
+from reminders.services import notify_owner_receipt
 
 from .models import PaymentReceipt
 
@@ -51,6 +52,7 @@ def submit_receipt(*, user, payment_id, file, amount=None):
         content_type=content_type, size=file.size, amount=amount,
     )
     log_action(payment.owner, "receipt.submitted", receipt, actor=user, payment=payment.pk, amount=amount)
+    transaction.on_commit(lambda: notify_owner_receipt(receipt))
     return receipt
 
 

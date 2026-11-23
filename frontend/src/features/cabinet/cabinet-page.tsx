@@ -55,7 +55,7 @@ export function CabinetPage() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col gap-5 px-4 pb-32">
       <header className="flex h-14 items-center justify-between">
-        <Brand />
+        <Brand variant="house" />
         <div className="flex items-center gap-1">
         <Link
           to="/cabinet/support"

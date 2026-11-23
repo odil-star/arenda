@@ -135,6 +135,24 @@ class ConfirmSerializer(serializers.Serializer):
     amount = serializers.IntegerField(required=False, min_value=1)
 
 
+class BulkIdsSerializer(serializers.Serializer):
+    ids = serializers.ListField(child=serializers.IntegerField(min_value=1), min_length=1, max_length=100)
+
+
+class PushKeysSerializer(serializers.Serializer):
+    p256dh = serializers.CharField(max_length=255)
+    auth = serializers.CharField(max_length=255)
+
+
+class PushSubscribeSerializer(serializers.Serializer):
+    endpoint = serializers.URLField(max_length=2000)
+    keys = PushKeysSerializer()
+
+
+class PushUnsubscribeSerializer(serializers.Serializer):
+    endpoint = serializers.URLField(max_length=2000)
+
+
 class RejectSerializer(serializers.Serializer):
     reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
 

@@ -172,6 +172,59 @@
     "endsToday": "Bugun",
     "endsIn_one": "{{count}} kundan keyin",
     "endsIn_other": "{{count}} kundan keyin",
+    "extend": "1 yilga uzaytirish",
+    "extended": "Shartnoma 1 yilga uzaytirildi",
+    "filter": { "label": "Obyekt", "all": "Barcha obyektlar" },
+    "customize": {
+      "button": "Sozlash",
+      "sections": {
+        "attention": "Diqqat talab qiladi",
+        "chart": "Daromad grafigi",
+        "calendar": "Kalendar",
+        "summary": "12 oylik natijalar",
+        "properties": "Obyektlar daromadi",
+        "reliability": "Ijarachilar ishonchliligi",
+        "plan": "Tarif"
+      }
+    },
+    "attention": {
+      "title": "Diqqat talab qiladi",
+      "overdue_one": "Qarz {{amount}} · {{count}} kun kechikish",
+      "overdue_other": "Qarz {{amount}} · {{count}} kun kechikish"
+    },
+    "calendar": {
+      "prev": "Oldingi oy",
+      "next": "Keyingi oy",
+      "empty": "{{date}}: voqealar yoʻq",
+      "leaseEnds": "Shartnoma tugaydi: {{name}}"
+    },
+    "insights": {
+      "incomeChart": "Oylik daromad",
+      "range": "Davr",
+      "months_one": "{{count}} oy",
+      "months_other": "{{count}} oy",
+      "noHistory": "Maʼlumotlar birinchi toʻlovlardan keyin paydo boʻladi.",
+      "vsPrev": "Oʻtgan oyga nisbatan",
+      "summary": "12 oylik natijalar",
+      "summaryLabel": "Hisoblanganning {{percent}}% yigʻildi",
+      "summaryHint": "Hisoblanganga nisbatan olingan ulush",
+      "summaryTotal": "Jami olingan",
+      "summaryAvg": "Oyiga oʻrtacha",
+      "summaryBest": "Eng yaxshi oy",
+      "vacantDays_one": "{{count}} kun ijarachisiz",
+      "vacantDays_other": "{{count}} kun ijarachisiz",
+      "publish": "E’lonlarga",
+      "byProperty": "Obyektlar daromadi (12 oy)",
+      "overdueTimes_one": "{{count}} kechikish",
+      "overdueTimes_other": "{{count}} kechikish",
+      "reliability": "Ijarachilar ishonchliligi",
+      "onTime": "{{total}} tadan {{ok}} tasi oʻz vaqtida",
+      "plan": "«{{name}}» tarifi",
+      "planUsed": "Obyektlar: {{used}} / {{limit}}",
+      "planUnlimited": "Obyektlar: {{used}}, cheklovsiz",
+      "paidUntil": "{{date}} gacha toʻlangan",
+      "upgrade": "Tarifni kengaytirish"
+    },
     "start": {
       "title": "Nimadan boshlash kerak",
       "subtitle": "Uch qadam — va xizmat toʻlovlarni oʻzi hisoblaydi va ijarachilarga eslatadi.",
@@ -400,7 +453,13 @@
     "paidToast": "{{amount}} toʻlov belgilandi",
     "successTitle": "{{amount}} olindi",
     "successRest": "Yana {{rest}} toʻlanishi kerak.",
-    "successFull": "Toʻlov toʻliq yopildi."
+    "successFull": "Toʻlov toʻliq yopildi.",
+    "remind": "Eslatish",
+    "remindAll": "Hammasiga eslatish",
+    "remindSent": "Eslatmalar yuborildi: {{count}}",
+    "remindNoTelegram": "Telegramsiz: {{count}}",
+    "remindAlready": "Bugun allaqachon eslatilgan: {{count}}",
+    "remindFailed": "Yuborib boʻlmadi: {{count}}"
   },
   "validation": {
     "required": "Majburiy maydon",
@@ -603,7 +662,9 @@
     "passwordNotSet": "O‘rnatilmagan",
     "telegramOn": "Ulangan",
     "telegramOff": "Ulanmagan",
-    "paidPart": "{{total}} dan {{paid}} to‘langan"
+    "paidPart": "{{total}} dan {{paid}} to‘langan",
+    "receiptDownload": "Kvitansiyani yuklab olish",
+    "receiptFailed": "Kvitansiyani yuklab boʻlmadi. Keyinroq urinib koʻring."
   },
   "quick": {
     "title": "Tezkor amallar",
@@ -666,7 +727,12 @@
     "reason": "Sabab: {{reason}}",
     "rejectTitle": "Chek rad etilsinmi?",
     "rejectHint": "Ijarachi sababni ko‘radi va chekni qayta yuborishi mumkin.",
-    "reasonPlaceholder": "Sabab (ixtiyoriy)"
+    "reasonPlaceholder": "Sabab (ixtiyoriy)",
+    "select": "Chekni tanlash: {{name}}",
+    "selectAll": "Hammasini tanlash",
+    "confirmSelected": "Tanlanganlarni tasdiqlash ({{count}})",
+    "bulkDone": "Tasdiqlandi: {{count}}",
+    "bulkFailed": "Tasdiqlab boʻlmadi: {{count}}"
   },
   "media": {
     "title": "Kvartira foto va videolari",
@@ -1242,6 +1308,7 @@
     "signIn": "Kirish",
     "footer": "Uy egasimisiz?",
     "footerCta": "E’lonni bepul joylashtiring",
+    "contactTitle": "Aloqa va takliflar",
     "heroTitle": "Ijaraga kvartira yoki uy toping",
     "heroText": "Faqat egalaridan bo‘sh obyektlar. Mosini tanlang va egasiga qo‘ng‘iroq qiling yoki yozing.",
     "filters": {
@@ -1413,5 +1480,35 @@
     "photosFailed_other": "{{count}} ta rasm yuklanmadi — qayta qo‘shing",
     "hiddenHint": "Obyekt saqlanadi, lekin mehmonlar uni ko‘rmaydi.",
     "openSearch": "Kvartira qidirish"
+  },
+  "pwa": {
+    "title": "Ilova va bildirishnomalar",
+    "installTitle": "Ilovani oʻrnatish",
+    "installHint": "Bosh ekranda belgi, tez ishga tushirish va manzil satrisiz ishlash.",
+    "install": "Oʻrnatish",
+    "installed": "Ilova oʻrnatilgan.",
+    "iosHint": "iPhone’da: Safari’da “Ulashish” tugmasini bosing va “Bosh ekranga qoʻshish”ni tanlang.",
+    "installMenu": "Brauzer menyusini oching va “Ilovani oʻrnatish” yoki “Bosh ekranga qoʻshish”ni tanlang.",
+    "pushTitle": "Push-bildirishnomalar",
+    "pushHint": "Toʻlov eslatmalari sayt yopiq boʻlsa ham shu qurilmaga keladi.",
+    "pushOn": "Bildirishnomalarni yoqish",
+    "pushOff": "Bildirishnomalarni oʻchirish",
+    "pushBlocked": "Bildirishnomalar brauzer sozlamalarida taqiqlangan. Bu sayt uchun ruxsat bering va qaytib keling.",
+    "pushUnsupported": "Bu brauzer push-bildirishnomalarni qoʻllamaydi yoki ilova oʻrnatilgan rejimda ochilmagan.",
+    "pushDisabled": "Push-bildirishnomalar serverda hali sozlanmagan."
+  },
+  "passkey": {
+    "login": "Barmoq izi yoki Face ID bilan kirish",
+    "loginFailed": "Barmoq izi bilan kirib boʻlmadi. Parol yoki SMS-kod bilan kiring.",
+    "title": "Barmoq izi / Face ID bilan kirish",
+    "hint": "Shu qurilmani qoʻshing — parolsiz kirasiz. Barmoq izi qurilmada qoladi, serverga yuborilmaydi.",
+    "add": "Shu qurilmani qoʻshish",
+    "added": "Qurilma qoʻshildi",
+    "addFailed": "Qurilmani qoʻshib boʻlmadi. Qayta urinib koʻring.",
+    "device": "Qurilma",
+    "lastUsed": "Kirish: {{date}}",
+    "remove": "Qurilmani oʻchirish",
+    "unsupported": "Bu brauzer barmoq izi bilan kirishni qoʻllamaydi.",
+    "createdOn": "Qoʻshilgan: {{date}}"
   }
 }

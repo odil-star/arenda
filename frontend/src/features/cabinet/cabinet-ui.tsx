@@ -1,11 +1,11 @@
-import { CheckCircle2, ChevronDown, Clock, Copy, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronDown, Clock, Copy, FileDown, XCircle } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { TenantLease, TenantPayment } from "@/api/portal";
+import { downloadPaymentReceipt, type TenantLease, type TenantPayment } from "@/api/portal";
 import { PaymentDetails } from "@/features/cabinet/payment-details";
 import { copyText } from "@/lib/clipboard";
 import { useFormat } from "@/lib/format";
@@ -87,6 +87,17 @@ export function PaymentRow({ p }: { p: TenantPayment }) {
   const done = p.remaining <= 0 || p.status === "paid";
   const late = !done && p.receipt_status !== "pending" && fmt.daysFromToday(p.due_date) > 0;
   const rejected = p.receipt_status === "rejected" && p.can_pay;
+  const [downloading, setDownloading] = useState(false);
+  const download = async () => {
+    setDownloading(true);
+    try {
+      await downloadPaymentReceipt(p.id);
+    } catch {
+      toast.error(t("cabinet.receiptFailed"));
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   let sub: ReactNode;
   if (done) sub = p.paid_at ? t("cabinet.paidOn", { date: fmt.date(p.paid_at) }) : t("payments.status.paid");
@@ -113,6 +124,11 @@ export function PaymentRow({ p }: { p: TenantPayment }) {
         </div>
       </div>
       {rejected && p.receipt_reject_reason && <p className="text-xs text-danger">{t("cabinet.pay.reason", { reason: p.receipt_reject_reason })}</p>}
+      {p.amount_paid > 0 && (
+        <Button size="sm" variant="ghost" className="-ml-2" loading={downloading} onClick={() => void download()}>
+          <FileDown aria-hidden /> {t("cabinet.receiptDownload")}
+        </Button>
+      )}
       {p.can_pay && (
         <Button size="sm" className="w-full" onClick={() => navigate(`/cabinet/pay/${p.id}`)}>
           {t("cabinet.pay.action")} · {fmt.money(p.remaining)}

@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from . import views
+from . import passkeys, views
 
 router = DefaultRouter()
 router.include_root_view = False
@@ -27,4 +27,13 @@ urlpatterns = [
     path("tenant/leases/", views.TenantLeaseListView.as_view()),
     path("tenant/leases/<int:pk>/hide/", views.TenantLeaseHideView.as_view()),
     path("tenant/payments/", views.TenantPaymentListView.as_view()),
+    path("tenant/payments/<int:pk>/receipt/", views.TenantPaymentReceiptPdfView.as_view()),
+    path("auth/passkeys/register/options/", passkeys.RegisterOptionsView.as_view()),
+    path("auth/passkeys/register/verify/", passkeys.RegisterVerifyView.as_view()),
+    path("auth/passkeys/login/options/", passkeys.LoginOptionsView.as_view()),
+    path("auth/passkeys/login/verify/", passkeys.LoginVerifyView.as_view()),
+    path("auth/passkeys/", passkeys.PasskeyListView.as_view()),
+    path("auth/passkeys/<int:pk>/", passkeys.PasskeyDetailView.as_view()),
+    path("push/key/", views.PushKeyView.as_view()),
+    path("push/subscription/", views.PushSubscribeView.as_view()),
 ]

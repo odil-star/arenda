@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 const LIMIT = 5;
 
 /** Платежи со сроком в ближайшие 7 дней, ещё не закрытые полностью. */
-export function UpcomingList({ className }: { className?: string }) {
+export function UpcomingList({ className, propertyId = null }: { className?: string; propertyId?: number | null }) {
   const { t } = useTranslation();
   const fmt = useFormat();
   const [paying, setPaying] = useState<Payment | null>(null);
@@ -28,7 +28,7 @@ export function UpcomingList({ className }: { className?: string }) {
     page_size: 50,
   });
 
-  const unpaid = (query.data?.results ?? []).filter((p) => p.remaining > 0);
+  const unpaid = (query.data?.results ?? []).filter((p) => p.remaining > 0 && (!propertyId || p.property === propertyId));
   const items = unpaid.slice(0, LIMIT);
 
   const when = (due: string) => {

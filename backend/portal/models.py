@@ -125,6 +125,34 @@ class LeaseMedia(OwnedModel):
         verbose_name_plural = "lease media"
 
 
+class WebAuthnCredential(models.Model):
+    """Ключ устройства (отпечаток / Face ID / PIN) для входа без пароля. Публичный ключ — не секрет."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="passkeys")
+    credential_id = models.CharField(max_length=512, unique=True)  # base64url
+    public_key = models.BinaryField()
+    sign_count = models.PositiveBigIntegerField(default=0)
+    name = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+
+
+class PushSubscription(models.Model):
+    """Подписка браузера/приложения на Web Push. Один endpoint — одна подписка."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="push_subscriptions")
+    endpoint = models.TextField(unique=True)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+
+
 class TenantNotification(models.Model):
     """Уведомление жильцу в кабинете (текст формирует клиент по kind и count)."""
 

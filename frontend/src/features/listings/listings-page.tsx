@@ -159,10 +159,10 @@ export function ListingsPage() {
                 aria-checked={active}
                 onClick={() => update({ kind: k })}
                 className={cn(
-                  "flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium transition",
+                  "flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
                   active
-                    ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                    : "border-border bg-card/80 text-foreground backdrop-blur hover:border-primary/40 hover:bg-muted",
+                    ? "border-transparent bg-[linear-gradient(135deg,#f97316,#ec4899)] text-white shadow-md shadow-orange-500/30"
+                    : "border-border bg-card/80 text-foreground backdrop-blur hover:border-fuchsia-400/50 hover:bg-muted",
                 )}
               >
                 <Icon className="size-4" aria-hidden />

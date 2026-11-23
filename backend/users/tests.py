@@ -160,3 +160,47 @@ class ProfileTests(APITestCase):
         self.assertTrue(self.client.get("/api/me/").json()["telegram_linked"])
         self.assertEqual(self.client.delete("/api/me/telegram-link/").status_code, 204)
         self.assertFalse(self.client.get("/api/me/").json()["telegram_linked"])
+
+
+class RefreshRevocationTests(APITestCase):
+    """После смены/сброса пароля ранее выданные refresh-токены перестают работать."""
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user("rev@example.com", "Old-pass-12345")
+
+    def login(self, password="Old-pass-12345"):
+        return self.client.post("/api/auth/token/", {"email": "rev@example.com", "password": password},
+                                format="json").json()
+
+    def refresh(self, token):
+        return self.client.post("/api/auth/token/refresh/", {"refresh": token}, format="json")
+
+    def test_rotated_refresh_cannot_be_reused(self):
+        tokens = self.login()
+        first = self.refresh(tokens["refresh"])
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(self.refresh(tokens["refresh"]).status_code, 401)  # старый уже отозван
+        self.assertEqual(self.refresh(first.json()["refresh"]).status_code, 200)
+
+    def test_password_change_revokes_all_refresh_tokens(self):
+        a, b = self.login(), self.login()
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer " + a["access"])
+        r = self.client.post("/api/me/password/", {"current_password": "Old-pass-12345",
+                                                   "new_password": "New-pass-98765"}, format="json")
+        self.assertEqual(r.status_code, 204)
+        self.client.credentials()
+        self.assertEqual(self.refresh(a["refresh"]).status_code, 401)
+        self.assertEqual(self.refresh(b["refresh"]).status_code, 401)
+        self.assertIn("refresh", self.login("New-pass-98765"))  # новый вход работает
+
+    def test_password_reset_revokes_refresh_tokens(self):
+        import re
+        from django.core import mail
+        stolen = self.login()
+        self.client.post("/api/auth/password-reset/", {"email": "rev@example.com"}, format="json")
+        uid, token = re.search(r"/reset-password/([^/]+)/(\S+)", mail.outbox[-1].body).groups()
+        r = self.client.post("/api/auth/password-reset/confirm/",
+                             {"uid": uid, "token": token, "password": "Brand-new-pass-77"}, format="json")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self.refresh(stolen["refresh"]).status_code, 401)

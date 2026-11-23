@@ -233,6 +233,19 @@ class PaymentViewSet(OwnedQuerysetMixin, mixins.ListModelMixin, mixins.RetrieveM
         return Response(self.get_serializer(payment).data)
 
 
+    @action(detail=False, methods=["post"])
+    def remind(self, request):
+        """Напомнить выбранным должникам в Telegram (не чаще раза в день на платёж)."""
+        from portal.serializers import BulkIdsSerializer
+        from reminders.services import remind_tenants
+
+        body = BulkIdsSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        stats = remind_tenants(request.user, body.validated_data["ids"])
+        log_action(request.user, "payment.reminded", None, actor=request.user, **stats)
+        return Response(stats)
+
+
 class DashboardView(APIView):
     @extend_schema(responses=OpenApiTypes.OBJECT)
     def get(self, request):
@@ -269,4 +282,85 @@ class DashboardView(APIView):
             "overdue": {"count": overdue["count"], "amount": overdue["amount"] or 0},
             "upcoming_7_days": {"count": upcoming["count"], "amount": upcoming["amount"] or 0},
             "leases_expiring_30_days": expiring,
+            **self._insights(owner, today, month_start, payments),
         })
+
+    @staticmethod
+    def _months_back(month_start, n):
+        """Первые числа n последних месяцев (включая текущий), от старого к новому."""
+        out = []
+        cur = month_start
+        for _ in range(n):
+            out.append(cur)
+            cur = (cur - timedelta(days=1)).replace(day=1)
+        return out[::-1]
+
+    def _insights(self, owner, today, month_start, payments):
+        months = self._months_back(month_start, 12)
+        first = months[0]
+        rows = payments.filter(due_date__gte=first).values_list("due_date", "amount_due", "amount_paid")
+        by_month = {m.strftime("%Y-%m"): [0, 0] for m in months}
+        for due, amount_due, amount_paid in rows:
+            key = due.strftime("%Y-%m")
+            if key in by_month:
+                by_month[key][0] += amount_due
+                by_month[key][1] += amount_paid
+        series = [{"month": k, "expected": v[0], "received": v[1]} for k, v in by_month.items()]
+
+        # доход и просрочки по объектам за 12 месяцев
+        per_prop = {}
+        for pid, name, due, amount_paid, amount_due in payments.filter(due_date__gte=first).values_list(
+            "lease__property_id", "lease__property__name", "due_date", "amount_paid", "amount_due"
+        ):
+            item = per_prop.setdefault(pid, {"id": pid, "name": name, "received": 0, "overdue_count": 0})
+            item["received"] += amount_paid
+            if amount_paid < amount_due and due < today:
+                item["overdue_count"] += 1
+        properties_income = sorted(per_prop.values(), key=lambda x: -x["received"])[:5]
+
+        # надёжность жильцов: доля полностью оплаченных вовремя платежей за 12 месяцев (только прошедшие сроки)
+        tenants = {}
+        due_rows = payments.filter(due_date__gte=first, due_date__lte=today).values_list(
+            "lease__tenant_id", "lease__tenant__full_name", "due_date", "amount_due", "amount_paid", "paid_at"
+        )
+        for tid, name, due, amount_due, amount_paid, paid_at in due_rows:
+            t = tenants.setdefault(tid, {"id": tid, "name": name, "total": 0, "on_time": 0})
+            t["total"] += 1
+            if amount_paid >= amount_due and paid_at is not None and timezone.localtime(paid_at).date() <= due:
+                t["on_time"] += 1
+        reliability = sorted(
+            (t for t in tenants.values() if t["total"] >= 2),
+            key=lambda x: (x["on_time"] / x["total"], -x["total"]),
+        )[:5]
+
+        # простой: свободные объекты и сколько дней без жильца
+        vacant_rows = []
+        active_ids = Lease.objects.filter(owner=owner, status=Lease.Status.ACTIVE).values("property_id")
+        for p in Property.objects.filter(owner=owner, is_under_repair=False).exclude(id__in=active_ids):
+            last_end = (Lease.objects.filter(owner=owner, property=p).order_by("-end_date")
+                        .values_list("end_date", flat=True).first())
+            since = last_end if last_end and last_end <= today else p.created_at.date()
+            vacant_rows.append({"id": p.id, "name": p.name, "days": max(0, (today - since).days),
+                                "is_listed": p.is_listed})
+        vacant_rows.sort(key=lambda x: -x["days"])
+
+        prev_start = (month_start - timedelta(days=1)).replace(day=1)
+        prev = payments.filter(due_date__gte=prev_start, due_date__lt=month_start).aggregate(
+            expected=Sum("amount_due"), received=Sum("amount_paid"))
+
+        from core.models import Subscription
+        sub = Subscription.objects.select_related("plan").filter(user=owner).first()
+        plan = None
+        if sub:
+            plan = {"name": sub.plan.name, "max_properties": sub.plan.max_properties,
+                    "used": Property.objects.filter(owner=owner).count(), "paid_until": sub.paid_until}
+
+        return {
+            "months": series,
+            "prev_month": {"expected": prev["expected"] or 0, "received": prev["received"] or 0},
+            "properties_income": properties_income,
+            "reliability": [{"id": t["id"], "name": t["name"], "total": t["total"], "on_time": t["on_time"]}
+                            for t in reliability],
+            "vacant_properties": vacant_rows[:5],
+            "plan": plan,
+        }

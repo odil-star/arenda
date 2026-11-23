@@ -18,6 +18,7 @@ from rest_framework import filters, serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import AccessToken
 
@@ -51,7 +52,10 @@ class IsPlatformAdmin(BasePermission):
         if user.is_superuser:
             return True
         if user.is_staff:
-            return request.method in SAFE_METHODS or getattr(view, "action", None) in getattr(view, "support_actions", ())
+            action = getattr(view, "action", None)
+            if action in getattr(view, "superuser_actions", ()):
+                return False  # выгрузки ПДн — только полному администратору
+            return request.method in SAFE_METHODS or action in getattr(view, "support_actions", ())
         return False
 
 
@@ -95,6 +99,14 @@ class ExportMixin:
 
     export_name = "export"
     export_header: tuple = ()
+    superuser_actions = ("export",)
+    throttle_scope = "admin_sensitive"
+
+    def get_throttles(self):
+        # лимит на пользователя — только для выгрузок и входа «как арендодатель»
+        if getattr(self, "action", None) in self.superuser_actions:
+            return [ScopedRateThrottle()]
+        return []
 
     def export_row(self, obj):  # pragma: no cover - переопределяется
         raise NotImplementedError
@@ -213,7 +225,7 @@ class AdminUserViewSet(ExportMixin, viewsets.ReadOnlyModelViewSet):
         )
 
     permission_classes = [IsPlatformAdmin]
-    support_actions = ("impersonate",)
+    superuser_actions = ("export", "impersonate")  # ПДн и вход «как арендодатель» — только полный админ
     serializer_class = AdminUserSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ("email", "phone", "first_name", "last_name")

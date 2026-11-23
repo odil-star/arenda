@@ -59,11 +59,31 @@ class SupportRoleTests(PlatformBase):
         self.user_a.refresh_from_db()
         self.assertTrue(self.user_a.is_active)
 
-    def test_support_can_impersonate_read_only(self):
+    def test_support_cannot_impersonate_or_export(self):
+        """ПДн и вход «как арендодатель» — только полному администратору."""
         self.login(self.support)
         r = self.client.post(f"/api/admin/users/{self.user_a.pk}/impersonate/")
+        self.assertEqual(r.status_code, 403)
+        self.assertFalse(AuditLog.objects.filter(action="admin_impersonate").exists())
+        for resource in ("users", "tenants", "leases", "audit", "transactions"):
+            self.assertEqual(self.client.get(f"/api/admin/{resource}/export/").status_code, 403, resource)
+        self.assertEqual(self.client.get("/api/admin/users/").status_code, 200)  # просмотр остаётся
+
+    def test_superuser_impersonation_is_logged(self):
+        r = self.client.post(f"/api/admin/users/{self.user_a.pk}/impersonate/")
         self.assertEqual(r.status_code, 200)
-        self.assertTrue(AuditLog.objects.filter(action="admin_impersonate", actor=self.support).exists())
+        self.assertTrue(AuditLog.objects.filter(action="admin_impersonate", actor=self.admin).exists())
+
+    def test_sensitive_actions_are_throttled(self):
+        from django.core.cache import cache
+        from rest_framework.settings import api_settings
+        cache.clear()
+        rates = dict(api_settings.DEFAULT_THROTTLE_RATES)
+        from unittest import mock
+        from rest_framework.throttling import ScopedRateThrottle
+        with mock.patch.object(ScopedRateThrottle, "THROTTLE_RATES", {**rates, "admin_sensitive": "2/hour"}):
+            codes = [self.client.get("/api/admin/users/export/").status_code for _ in range(3)]
+        self.assertEqual(codes, [200, 200, 429])
 
     def test_support_not_listed_as_landlord(self):
         emails = {u["email"] for u in self.client.get("/api/admin/users/").json()["results"]}
@@ -320,3 +340,18 @@ class ProblemAlertTests(PlatformBase):
         stuck2 = self._tx(pay, "stuck2", 1)
         PaymentTransaction.objects.filter(pk=stuck2.pk).update(created_at=timezone.now() - timedelta(days=3))
         self.assertEqual(check_problem_payments(), 1)
+
+
+class DjangoAdminAuditTests(PlatformBase):
+    def test_audit_log_cannot_be_deleted_in_django_admin(self):
+        from django.contrib import admin
+        from django.test import RequestFactory
+
+        from .models import AuditLog
+
+        model_admin = admin.site._registry[AuditLog]
+        request = RequestFactory().get("/admin/")
+        request.user = self.admin
+        self.assertFalse(model_admin.has_delete_permission(request))
+        self.assertFalse(model_admin.has_change_permission(request))
+        self.assertFalse(model_admin.has_add_permission(request))

@@ -203,3 +203,49 @@ class BotLogicTests(OwnerTestCase):
     def test_bot_module_builds_dispatcher(self):
         from .bot import build_dispatcher
         self.assertIsNotNone(build_dispatcher())
+
+
+class ManualRemindAndOwnerEventTests(OwnerTestCase):
+    def setUp(self):
+        super().setUp()
+        RecordingSender.sent, RecordingSender.fail = [], False
+        self.sender = RecordingSender()
+        self.today = timezone.localdate()
+        self.user_a.telegram_chat_id = 111
+        self.user_a.save()
+        self.tenant = self.make_tenant(telegram_chat_id=500)
+    def _overdue_payment(self):
+        from leasing.models import Payment
+        self.make_lease(tenant=self.tenant, start=self.today - timedelta(days=40), end=self.today + timedelta(days=100), day=1)
+        return Payment.objects.filter(owner=self.user_a, due_date__lt=self.today).first()
+
+    def test_remind_sends_once_per_day_and_skips_no_telegram(self):
+        from .services import remind_tenants
+        payment = self._overdue_payment()
+        stats = remind_tenants(self.user_a, [payment.pk], sender=self.sender)
+        self.assertEqual((stats["sent"], len(RecordingSender.sent)), (1, 1))
+        again = remind_tenants(self.user_a, [payment.pk], sender=self.sender)
+        self.assertEqual((again["sent"], again["already"], len(RecordingSender.sent)), (0, 1, 1))
+        self.tenant.telegram_chat_id = None
+        self.tenant.save()
+        NotificationLog.objects.all().delete()
+        self.assertEqual(remind_tenants(self.user_a, [payment.pk], sender=self.sender)["no_telegram"], 1)
+
+    def test_remind_endpoint_ignores_foreign_payments(self):
+        payment = self._overdue_payment()
+        self.login(self.user_b)
+        response = self.client.post("/api/payments/remind/", {"ids": [payment.pk]}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(sum(response.json().values()), 0)
+
+    def test_owner_notified_about_receipt(self):
+        from types import SimpleNamespace
+        from .services import notify_owner_receipt
+        payment = self._overdue_payment()
+        receipt = SimpleNamespace(pk=7, owner=self.user_a, payment=payment, amount=1_000_000)
+        self.assertTrue(notify_owner_receipt(receipt, sender=self.sender))
+        self.assertFalse(notify_owner_receipt(receipt, sender=self.sender))  # дубль не отправляется
+        self.assertEqual(RecordingSender.sent[0][0], 111)
+        RecordingSender.fail = True
+        receipt.pk = 8
+        self.assertFalse(notify_owner_receipt(receipt, sender=self.sender))  # сбой канала не пробрасывается

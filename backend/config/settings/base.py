@@ -1,6 +1,7 @@
 """Общие настройки. Все секреты и адреса — только из окружения."""
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 import environ
 from celery.schedules import crontab
@@ -19,6 +20,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "django_filters",
     "drf_spectacular",
@@ -139,7 +141,11 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PAGINATION_CLASS": "core.pagination.StandardPagination",
     "EXCEPTION_HANDLER": "core.exceptions.api_exception_handler",
-    "DEFAULT_THROTTLE_RATES": {"auth": env("AUTH_THROTTLE_RATE", default="10/min")},
+    "DEFAULT_THROTTLE_RATES": {
+        "auth": env("AUTH_THROTTLE_RATE", default="10/min"),
+        # выгрузки ПДн и вход «как арендодатель» (на пользователя)
+        "admin_sensitive": env("ADMIN_SENSITIVE_THROTTLE_RATE", default="60/hour"),
+    },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "NUM_PROXIES": env.int("NUM_PROXIES", default=0),
 }
@@ -150,6 +156,8 @@ SIMPLE_JWT = {
     # так что активный пользователь остаётся в системе, а вышедший из обихода — разлогинивается.
     "REFRESH_TOKEN_LIFETIME": timedelta(days=90),
     "ROTATE_REFRESH_TOKENS": True,
+    # Использованный refresh отзывается; при смене пароля отзываются все (users.tokens.revoke_user_tokens).
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ORIGINS", default=[])
@@ -185,6 +193,16 @@ TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
 TELEGRAM_SENDER = "reminders.channels.TelegramSender"
 REMINDER_DAYS_BEFORE = 3
 REMINDER_OVERDUE_EVERY_DAYS = 3
+
+# Web Push (VAPID). Ключи: python manage.py generate_vapid. Пусто — push выключен.
+VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY", default="")
+VAPID_PRIVATE_KEY = env("VAPID_PRIVATE_KEY", default="")
+VAPID_CONTACT = env("VAPID_CONTACT", default="mailto:admin@example.com")
+
+# Вход по отпечатку / Face ID (WebAuthn). RP_ID — домен сайта без порта; по умолчанию берётся из FRONTEND_URL.
+WEBAUTHN_RP_ID = env("WEBAUTHN_RP_ID", default=urlparse(FRONTEND_URL).hostname or "localhost")
+WEBAUTHN_RP_NAME = env("WEBAUTHN_RP_NAME", default="Arenda")
+WEBAUTHN_ORIGINS = env.list("WEBAUTHN_ORIGINS", default=[FRONTEND_URL])
 
 # Платёжные провайдеры
 PAYME_MERCHANT_ID = env("PAYME_MERCHANT_ID", default="")

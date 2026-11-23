@@ -14,3 +14,6 @@ class AuditLogAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False  # журнал неизменяем: даже суперпользователь не стирает следы через /admin/

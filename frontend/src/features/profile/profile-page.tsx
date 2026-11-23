@@ -16,6 +16,7 @@ import {
 } from "@/api/hooks";
 import { errorKind, serverMessages } from "@/api/errors";
 import type { Language, Me } from "@/api/types";
+import { DeviceSettings } from "./device-settings";
 import { TelegramCard } from "./telegram-card";
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -259,6 +260,10 @@ export function ProfilePage() {
               unlink={() => unlinkMutation.mutateAsync()}
               busy={unlinkMutation.isPending}
             />
+            <Card className="p-4">
+              <h2 className="mb-3 text-base font-semibold">{t("pwa.title")}</h2>
+              <DeviceSettings />
+            </Card>
           </>
         ) : (
           <Skeleton className="h-64 w-full" />

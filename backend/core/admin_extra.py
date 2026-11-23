@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import EmailMessage, get_connection
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncDate
+from django.db import transaction
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
@@ -307,13 +308,16 @@ class AdminAdminViewSet(
         return Response(AdminAdminSerializer(user, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
     def destroy(self, request, *args, **kwargs):
-        user = self.get_object()
-        if user.pk == request.user.pk:
-            raise serializers.ValidationError({"detail": "Нельзя снять права с самого себя."})
-        if user.is_superuser and not User.objects.filter(is_superuser=True, is_active=True).exclude(pk=user.pk).exists():
-            raise serializers.ValidationError({"detail": "Нельзя убрать последнего администратора."})
-        user.is_superuser = False
-        user.is_staff = False
-        user.save(update_fields=["is_superuser", "is_staff"])
-        log_action(user, "admin_revoke", user, actor=request.user)
+        with transaction.atomic():
+            # блокируем всех администраторов: два одновременных запроса не снимут права друг у друга
+            list(User.objects.select_for_update().filter(is_superuser=True).values_list("pk", flat=True))
+            user = self.get_object()
+            if user.pk == request.user.pk:
+                raise serializers.ValidationError({"detail": "Нельзя снять права с самого себя."})
+            if user.is_superuser and not User.objects.filter(is_superuser=True, is_active=True).exclude(pk=user.pk).exists():
+                raise serializers.ValidationError({"detail": "Нельзя убрать последнего администратора."})
+            user.is_superuser = False
+            user.is_staff = False
+            user.save(update_fields=["is_superuser", "is_staff"])
+            log_action(user, "admin_revoke", user, actor=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)

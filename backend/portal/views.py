@@ -21,13 +21,15 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from core.permissions import IsTenantRole
 from core.phone import try_normalize_phone
 from users.models import User, UserProfile
+from users.tokens import revoke_user_tokens
 from users.views import AuthThrottleMixin
 from leasing.models import Lease, Payment, Tenant
 from leasing.views import PaymentFilter
 
 from . import media as media_service, receipts, services
-from .models import LeaseMedia, PaymentReceipt, TenantNotification
+from .models import LeaseMedia, PaymentReceipt, PushSubscription, TenantNotification
 from .serializers import (
+    BulkIdsSerializer, PushSubscribeSerializer, PushUnsubscribeSerializer,
     PhoneRequestSerializer, PhoneVerifySerializer, RegisterTenantSerializer, TenantLeaseSerializer,
     TenantPaymentSerializer, AcceptSerializer, ConfirmSerializer, ReceiptSerializer, ReceiptUploadSerializer,
     RejectSerializer, TenantProfileUpdateSerializer,
@@ -214,7 +216,8 @@ class TenantPasswordView(APIView):
         body = TenantPasswordSerializer(data=request.data)
         body.is_valid(raise_exception=True)
         user = request.user
-        if user.has_usable_password() and not user.check_password(body.validated_data.get("current_password", "")):
+        had_password = user.has_usable_password()
+        if had_password and not user.check_password(body.validated_data.get("current_password", "")):
             raise ValidationError({"current_password": ["Текущий пароль указан неверно."]})
         try:
             validate_password(body.validated_data["password"], user)
@@ -222,6 +225,8 @@ class TenantPasswordView(APIView):
             raise ValidationError({"password": list(exc.messages)})
         user.set_password(body.validated_data["password"])
         user.save(update_fields=["password"])
+        if had_password:  # первая установка пароля сессию не рвёт, смена — отзывает все refresh-токены
+            revoke_user_tokens(user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -305,6 +310,69 @@ class TenantReceiptCreateView(APIView):
         return Response({"id": receipt.pk, "status": receipt.status}, status=status.HTTP_201_CREATED)
 
 
+class TenantPaymentReceiptPdfView(APIView):
+    """GET /api/tenant/payments/{id}/receipt/ — квитанция об оплате (PDF; ?as=html — разметка)."""
+
+    permission_classes = [IsTenantRole]
+
+    @extend_schema(responses=OpenApiTypes.BINARY)
+    def get(self, request, pk):
+        from django.http import HttpResponse
+        from leasing.contract import PdfUnavailable
+        from leasing.receipt_doc import render_receipt_html, render_receipt_pdf
+
+        payment = Payment.objects.filter(
+            pk=pk, lease__tenant__user=request.user, lease__hidden_by_tenant=False, amount_paid__gt=0,
+        ).select_related("lease__property", "lease__tenant", "owner").first()
+        if payment is None:
+            raise NotFound()
+        if request.query_params.get("as") == "html":
+            return HttpResponse(render_receipt_html(payment), content_type="text/html; charset=utf-8")
+        try:
+            pdf = render_receipt_pdf(payment)
+        except PdfUnavailable as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        response = HttpResponse(pdf, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="receipt-{payment.pk}.pdf"'
+        return response
+
+
+# ---------- Web Push (жилец и арендодатель) ----------
+
+class PushKeyView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(responses=OpenApiTypes.OBJECT)
+    def get(self, request):
+        from django.conf import settings as dj_settings
+        from .push import push_enabled
+        enabled = push_enabled()
+        return Response({"enabled": enabled, "public_key": dj_settings.VAPID_PUBLIC_KEY if enabled else ""})
+
+
+class PushSubscribeView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(request=PushSubscribeSerializer, responses=OpenApiTypes.OBJECT)
+    def post(self, request):
+        body = PushSubscribeSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        data = body.validated_data
+        # endpoint уникален: устройство, перешедшее к другому аккаунту, переподписывается на него
+        PushSubscription.objects.update_or_create(
+            endpoint=data["endpoint"],
+            defaults={"user": request.user, "p256dh": data["keys"]["p256dh"], "auth": data["keys"]["auth"]},
+        )
+        return Response({"subscribed": True}, status=status.HTTP_201_CREATED)
+
+    @extend_schema(request=PushUnsubscribeSerializer, responses=OpenApiTypes.OBJECT)
+    def delete(self, request):
+        body = PushUnsubscribeSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        PushSubscription.objects.filter(user=request.user, endpoint=body.validated_data["endpoint"]).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 # ---------- чеки у арендодателя: /api/receipts/ ----------
 
 class ReceiptViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
@@ -344,6 +412,22 @@ class ReceiptViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.
         receipt = receipts.confirm_receipt(receipt_id=receipt.pk, owner=request.user, actor=request.user,
                                            amount=body.validated_data.get("amount"))
         return self._respond(receipt)
+
+    @action(detail=False, methods=["post"], url_path="bulk-confirm")
+    def bulk_confirm(self, request):
+        """Подтвердить несколько чеков на заявленные суммы; ошибки по отдельным чекам не мешают остальным."""
+        body = BulkIdsSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        ids = set(body.validated_data["ids"])
+        owned = set(self.get_queryset().filter(pk__in=ids).values_list("pk", flat=True))
+        confirmed, failed = [], []
+        for pk in sorted(owned):
+            try:
+                receipts.confirm_receipt(receipt_id=pk, owner=request.user, actor=request.user)
+                confirmed.append(pk)
+            except ValidationError:
+                failed.append(pk)
+        return Response({"confirmed": confirmed, "failed": failed, "not_found": sorted(ids - owned)})
 
     @action(detail=True, methods=["post"])
     def reject(self, request, pk=None):

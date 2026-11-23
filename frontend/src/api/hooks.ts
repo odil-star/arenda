@@ -115,6 +115,18 @@ export function useOwnerTelegramUnlink() {
   });
 }
 
+/** Продлить действующий договор до новой даты окончания (график платежей достраивается). */
+export function useExtendLease() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, end_date }: { id: number; end_date: string }) =>
+      (await api.post<Lease>(`/leases/${id}/extend/`, { end_date })).data,
+    onSuccess: () => {
+      for (const key of ["leases", "payments", "dashboard", "properties"]) void qc.invalidateQueries({ queryKey: [key] });
+    },
+  });
+}
+
 // ---------- Dashboard ----------
 export function useDashboard() {
   return useQuery({

@@ -237,6 +237,19 @@ export function useSendReceipt() {
   });
 }
 
+/** Скачать PDF-квитанцию по оплаченному платежу (нужен JWT, поэтому через blob). */
+export async function downloadPaymentReceipt(paymentId: number) {
+  const res = await api.get<Blob>(`/tenant/payments/${paymentId}/receipt/`, { responseType: "blob", timeout: 60_000 });
+  const url = URL.createObjectURL(res.data);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `receipt-${paymentId}.pdf`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 /** Арендодатель: список чеков. */
 export function useReceipts(status?: ReceiptStatus) {
   return useQuery({
@@ -269,6 +282,35 @@ export function useConfirmReceipt() {
     mutationFn: async ({ id, amount }: { id: number; amount?: number }) =>
       (await api.post<Receipt>(`/receipts/${id}/confirm/`, amount ? { amount } : {})).data,
     onSuccess: done,
+  });
+}
+
+export interface BulkConfirmResult {
+  confirmed: number[];
+  failed: number[];
+  not_found: number[];
+}
+
+export function useBulkConfirmReceipts() {
+  const done = useAfterReview();
+  return useMutation({
+    mutationFn: async (ids: number[]) =>
+      (await api.post<BulkConfirmResult>("/receipts/bulk-confirm/", { ids })).data,
+    onSuccess: done,
+  });
+}
+
+export interface RemindResult {
+  sent: number;
+  no_telegram: number;
+  already: number;
+  failed: number;
+}
+
+/** Напомнить должникам в Telegram. */
+export function useRemindPayments() {
+  return useMutation({
+    mutationFn: async (ids: number[]) => (await api.post<RemindResult>("/payments/remind/", { ids })).data,
   });
 }
 

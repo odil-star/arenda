@@ -426,6 +426,14 @@ class DashboardTests(OwnerTestCase):
         self.assertEqual(body["leases_expiring_30_days"], 1)
         month = Payment.objects.filter(due_date__year=today.year, due_date__month=today.month)
         self.assertEqual(body["month"]["expected"], sum(p.amount_due for p in month))
+        # новые блоки: динамика за 12 месяцев, простой объектов, тариф отсутствует
+        self.assertEqual(len(body["months"]), 12)
+        self.assertEqual(body["months"][-1]["month"], today.strftime("%Y-%m"))
+        self.assertEqual(body["months"][-1]["expected"], sum(p.amount_due for p in month))
+        self.assertIn("prev_month", body)
+        self.assertEqual(len(body["vacant_properties"]), 1)
+        self.assertIsNone(body["plan"])
+        self.assertTrue(all(r["total"] >= 2 for r in body["reliability"]))
 
 
 

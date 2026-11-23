@@ -11,6 +11,8 @@ class NotificationLog(OwnedModel):
         TENANT_DUE = "tenant_due", "Арендатору: в день оплаты"
         TENANT_OVERDUE = "tenant_overdue", "Арендатору: просрочка"
         OWNER_SUMMARY = "owner_summary", "Владельцу: сводка"
+        OWNER_EVENT = "owner_event", "Владельцу: событие"
+        TENANT_MANUAL = "tenant_manual", "Арендатору: напоминание от владельца"
 
     class Status(models.TextChoices):
         PENDING = "pending", "Отправляется"

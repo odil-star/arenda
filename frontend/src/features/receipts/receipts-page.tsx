@@ -12,7 +12,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { EmptyState, ErrorState, ListSkeleton } from "@/components/common/states";
 import { serverMessages } from "@/api/errors";
 import {
-  useConfirmReceipt, useReceiptFile, useReceipts, useRejectReceipt, type Receipt, type ReceiptStatus,
+  useBulkConfirmReceipts, useConfirmReceipt, useReceiptFile, useReceipts, useRejectReceipt, type Receipt, type ReceiptStatus,
 } from "@/api/portal";
 import { useFormat } from "@/lib/format";
 
@@ -26,6 +26,8 @@ export function ReceiptsPage() {
   const query = useReceipts(status === "all" ? undefined : status);
   const confirm = useConfirmReceipt();
   const reject = useRejectReceipt();
+  const bulk = useBulkConfirmReceipts();
+  const [selected, setSelected] = useState<number[]>([]);
   const [viewing, setViewing] = useState<Receipt | null>(null);
   const [rejecting, setRejecting] = useState<Receipt | null>(null);
 
@@ -34,6 +36,21 @@ export function ReceiptsPage() {
     try {
       await confirm.mutateAsync({ id: r.id });
       toast.success(t("receipts.confirmed"));
+    } catch (error) {
+      fail(error);
+    }
+  };
+
+  const pendingIds = (query.data ?? []).filter((r) => r.status === "pending").map((r) => r.id);
+  const chosen = selected.filter((id) => pendingIds.includes(id));
+  const toggle = (id: number) => setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  const onBulk = async () => {
+    try {
+      const res = await bulk.mutateAsync(chosen);
+      if (res.confirmed.length) toast.success(t("receipts.bulkDone", { count: res.confirmed.length }));
+      const bad = res.failed.length + res.not_found.length;
+      if (bad) toast.error(t("receipts.bulkFailed", { count: bad }));
+      setSelected([]);
     } catch (error) {
       fail(error);
     }
@@ -49,8 +66,26 @@ export function ReceiptsPage() {
   return (
     <>
       <PageHeader title={t("receipts.title")} description={t("receipts.description")} />
-      <div className="mb-4 max-w-56">
-        <Select aria-label={t("common.status")} value={status} onValueChange={(v) => setStatus(v as ReceiptStatus | "all")} options={options} />
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="w-56">
+          <Select aria-label={t("common.status")} value={status} onValueChange={(v) => setStatus(v as ReceiptStatus | "all")} options={options} />
+        </div>
+        {pendingIds.length > 1 && (
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="size-4 accent-primary"
+              checked={chosen.length === pendingIds.length}
+              onChange={(e) => setSelected(e.target.checked ? pendingIds : [])}
+            />
+            {t("receipts.selectAll")}
+          </label>
+        )}
+        {chosen.length > 0 && (
+          <Button size="sm" loading={bulk.isPending} onClick={() => void onBulk()}>
+            {t("receipts.confirmSelected", { count: chosen.length })}
+          </Button>
+        )}
       </div>
 
       {query.isPending ? (
@@ -67,7 +102,16 @@ export function ReceiptsPage() {
               <li key={r.id}>
                 <Card className="space-y-3 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
+                    {r.status === "pending" && (
+                      <input
+                        type="checkbox"
+                        className="mt-1 size-4 accent-primary"
+                        aria-label={t("receipts.select", { name: r.tenant_name })}
+                        checked={chosen.includes(r.id)}
+                        onChange={() => toggle(r.id)}
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
                       <p className="font-medium">{r.tenant_name}</p>
                       <p className="text-sm text-muted-foreground">
                         {r.property_name} · {t("receipts.forDate", { date: fmt.date(r.due_date) })}

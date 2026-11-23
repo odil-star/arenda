@@ -10,6 +10,8 @@ from django.utils import timezone
 
 from leasing.models import Lease, Payment
 
+from portal.push import send_push
+
 from .channels import get_sender
 from .messages import money, t
 from .models import NotificationLog
@@ -76,12 +78,18 @@ def run_daily_reminders(today=None, sender=None):
         tenant = payment.lease.tenant
         days_left = (payment.due_date - today).days
         kind = tenant_kind(days_left)
-        if kind is None or tenant.telegram_chat_id is None:
+        if kind is None:
             continue
         text = t(
             tenant.language, kind, days=abs(days_left), property=payment.lease.property.name,
             amount=money(payment.remaining), due=payment.due_date.strftime("%d.%m.%Y"),
         )
+        send_push(
+            tenant.user, payment.lease.property.name, text, url="/cabinet",
+            dedupe_key=f"t:{payment.pk}:{kind}:{today.isoformat()}",
+        )
+        if tenant.telegram_chat_id is None:
+            continue
         if deliver(
             sender, owner=payment.owner, kind=kind, payment=payment, tenant=tenant,
             dedupe_key=f"t:{payment.pk}:{kind}:{today.isoformat()}", chat_id=tenant.telegram_chat_id, text=text,
@@ -116,3 +124,52 @@ def owner_summary(owner, payments, today):
             line += " " + t(lang, "owner_no_telegram")
         lines.append(line)
     return "\n".join(lines)
+
+
+def notify_owner_receipt(receipt, sender=None):
+    """Арендодателю в Telegram: жилец прислал чек. Сбой канала не должен ломать загрузку чека."""
+    owner = receipt.owner
+    payment = receipt.payment
+    text = t(owner.language, "owner_receipt", tenant=payment.lease.tenant.full_name,
+             property=payment.lease.property.name, amount=money(receipt.amount))
+    send_push(owner, payment.lease.property.name, text, url="/receipts", dedupe_key=f"oe:receipt:{receipt.pk}")
+    if owner.telegram_chat_id is None:
+        return False
+    try:
+        return deliver(
+            sender or get_sender(), owner=owner, kind=NotificationLog.Kind.OWNER_EVENT, payment=payment,
+            dedupe_key=f"oe:receipt:{receipt.pk}", chat_id=owner.telegram_chat_id, text=text,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("Не удалось уведомить владельца о чеке %s", receipt.pk)
+        return False
+
+
+def remind_tenants(owner, payment_ids, today=None, sender=None):
+    """Ручное напоминание должникам. Не чаще одного раза в день на платёж."""
+    today = today or timezone.localdate()
+    sender = sender or get_sender()
+    payments = Payment.objects.filter(
+        owner=owner, pk__in=payment_ids, amount_paid__lt=F("amount_due")
+    ).select_related("lease__property", "lease__tenant")
+    stats = {"sent": 0, "no_telegram": 0, "already": 0, "failed": 0}
+    for payment in payments:
+        tenant = payment.lease.tenant
+        text = t(tenant.language, "tenant_manual", property=payment.lease.property.name,
+                 amount=money(payment.remaining), due=payment.due_date.strftime("%d.%m.%Y"))
+        key = f"tm:{payment.pk}:{today.isoformat()}"
+        pushed = send_push(tenant.user, payment.lease.property.name, text, url="/cabinet", dedupe_key=key)
+        if tenant.telegram_chat_id is None:
+            if pushed:
+                stats["sent"] += 1
+            else:
+                stats["no_telegram"] += 1
+            continue
+        if deliver(sender, owner=owner, kind=NotificationLog.Kind.TENANT_MANUAL, payment=payment, tenant=tenant,
+                   dedupe_key=key, chat_id=tenant.telegram_chat_id, text=text):
+            stats["sent"] += 1
+        elif NotificationLog.objects.filter(dedupe_key=key, status=NotificationLog.Status.SENT).exists():
+            stats["already"] += 1
+        else:
+            stats["failed"] += 1
+    return stats

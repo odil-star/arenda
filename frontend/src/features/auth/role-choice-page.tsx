@@ -15,6 +15,7 @@ import { useLogin } from "@/api/hooks";
 import { usePhonePasswordLogin, usePhoneRequest, usePhoneVerify } from "@/api/portal";
 import { cn } from "@/lib/utils";
 import { AuthHero } from "./auth-hero";
+import { PasskeyLoginButton } from "./passkey-login-button";
 import { useAuth } from "./auth-context";
 import type { FromState } from "./guards";
 
@@ -280,6 +281,8 @@ export function RoleChoicePage() {
                 );
               })}
             </div>
+
+            <PasskeyLoginButton />
 
             {role && (
               <Card key={role} className="mt-4 animate-rise-in p-5 shadow-sm">

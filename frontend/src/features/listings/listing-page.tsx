@@ -19,7 +19,6 @@ import { ListingAmenities, ListingDetails, ListingFacts, ListingLocation, Listin
 function Gallery({ listing }: { listing: Listing }) {
   const { t } = useTranslation();
   const [full, setFull] = useState<number | null>(null);
-  const [slide, setSlide] = useState(0);
   const photos = listing.photos;
   const n = photos.length;
 
@@ -44,54 +43,12 @@ function Gallery({ listing }: { listing: Listing }) {
     </button>
   );
 
-  // сетка для компьютера: большое фото + до четырёх маленьких
-  const side = photos.slice(1, 5).map((_, k) => k + 1);
-  const gridCols = n === 1 ? "grid-cols-1" : n === 2 ? "grid-cols-2" : "grid-cols-4";
-  const bigClass = n >= 3 ? "col-span-2 row-span-2" : "";
-  const sideClass = (i: number) => (n === 3 || (n === 4 && i === 3) ? "col-span-2" : "");
-
   return (
     <div>
       <div className="relative">
-        {/* телефон: лента со свайпом */}
-        <div className="md:hidden">
-          <ul
-            className="-mx-4 flex snap-x snap-mandatory overflow-x-auto sm:mx-0 sm:rounded-2xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            onScroll={(e) => {
-              const el = e.currentTarget;
-              setSlide(Math.round(el.scrollLeft / el.clientWidth));
-            }}
-          >
-            {photos.map((_, i) => (
-              <li key={photos[i]} className="aspect-[4/3] w-full shrink-0 snap-center overflow-hidden bg-muted">
-                {open(i)}
-              </li>
-            ))}
-          </ul>
-          {n > 1 && (
-            <span className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white tabular sm:right-3">
-              {slide + 1} / {n}
-            </span>
-          )}
-        </div>
-
-        {/* компьютер: сетка */}
-        <div className={cn("hidden aspect-[16/9] gap-2 overflow-hidden rounded-2xl md:grid", gridCols, n >= 3 && "grid-rows-2")}>
-          <div className={cn("overflow-hidden bg-muted", bigClass)}>{open(0)}</div>
-          {side.map((i) => (
-            <div key={photos[i]} className={cn("relative overflow-hidden bg-muted", sideClass(i))}>
-              {open(i)}
-            </div>
-          ))}
-        </div>
+        <div className="aspect-[4/3] overflow-hidden bg-muted sm:rounded-2xl md:aspect-[16/9] md:rounded-2xl">{open(0)}</div>
         {n > 1 && (
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => setFull(0)}
-            className="absolute bottom-3 left-3 hidden shadow-md md:inline-flex"
-          >
+          <Button type="button" variant="secondary" size="sm" onClick={() => setFull(0)} className="absolute bottom-3 left-3 shadow-md">
             <Images aria-hidden />
             {t("listing.allPhotos", { count: n })}
           </Button>

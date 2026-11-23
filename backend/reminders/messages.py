@@ -12,6 +12,9 @@ TEMPLATES = {
         "tenant_due": "Сегодня срок оплаты аренды «{property}». Сумма: {amount} сум.",
         "tenant_overdue": "Оплата аренды «{property}» просрочена на {days} дн. "
                           "К оплате: {amount} сум (срок был {due}).",
+        "tenant_manual": "Напоминание от арендодателя: оплатите аренду «{property}». "
+                         "К оплате: {amount} сум (срок: {due}).",
+        "owner_receipt": "Новый чек об оплате: {tenant} — {property}, {amount} сум. Подтвердите его в приложении.",
         "owner_header": "Сводка на {date}",
         "owner_overdue": "Просрочено: {count} шт. на {amount} сум",
         "owner_due": "Сегодня к оплате: {count} шт. на {amount} сум",
@@ -39,6 +42,9 @@ TEMPLATES = {
         "tenant_due": "Bugun «{property}» ijarasi uchun to'lov kuni. Summa: {amount} so'm.",
         "tenant_overdue": "«{property}» ijarasi to'lovi {days} kunga kechikdi. "
                           "To'lash kerak: {amount} so'm (muddat: {due}).",
+        "tenant_manual": "Ijaraga beruvchidan eslatma: «{property}» ijarasini to'lang. "
+                         "To'lash kerak: {amount} so'm (muddat: {due}).",
+        "owner_receipt": "To'lov cheki keldi: {tenant} — {property}, {amount} so'm. Ilovada tasdiqlang.",
         "owner_header": "{date} holatiga xulosa",
         "owner_overdue": "Muddati o'tgan: {count} ta, {amount} so'm",
         "owner_due": "Bugun to'lanishi kerak: {count} ta, {amount} so'm",

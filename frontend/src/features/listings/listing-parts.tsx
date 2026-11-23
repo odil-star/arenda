@@ -1,14 +1,15 @@
 import {
-  AirVent, ArrowRight, ArrowUpRight, BedDouble, Building2, Camera, CookingPot, DoorOpen, Flame, House, ImageOff, KeyRound, Layers,
+  AirVent, ArrowRight, ArrowUpRight, BedDouble, Building2, CookingPot, DoorOpen, Flame, House, ImageOff, KeyRound, Layers,
   Maximize2, MapPin, Microwave, Paintbrush, ParkingSquare, Refrigerator, Sofa, Sparkles, Tv, WashingMachine, Wifi, type LucideIcon,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useEffect, type ReactNode } from "react";
+import { useLayoutEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Brand } from "@/components/layout/brand";
-import { LanguageSwitcher, ThemeSwitcher } from "@/components/layout/preferences";
+import { LanguageSwitcher } from "@/components/layout/preferences";
+import { useTheme } from "@/lib/theme-context";
 import { publicFileUrl, type Listing } from "@/api/listings";
 import { useAuth } from "@/features/auth/auth-context";
 import { useFormat } from "@/lib/format";
@@ -18,11 +19,22 @@ import { cn } from "@/lib/utils";
 export function ListingsLayout({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
-  // синяя акцентная тема только на публичных страницах объявлений
-  useEffect(() => {
+  const { resolved } = useTheme();
+  // публичные страницы объявлений: всегда светлая тема (без переключателя) и синий акцент
+  useLayoutEffect(() => {
     const root = document.documentElement;
+    root.dataset.themeLock = "light";
+    root.classList.remove("dark");
     root.classList.add("theme-blue");
-    return () => root.classList.remove("theme-blue");
+    root.style.colorScheme = "light";
+    return () => {
+      delete root.dataset.themeLock;
+      root.classList.remove("theme-blue");
+      root.classList.toggle("dark", resolved === "dark");
+      root.style.colorScheme = resolved;
+    };
+    // resolved нужен только при выходе; перезапуск эффекта при смене темы не нужен
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
     <div className="flex min-h-dvh flex-col">
@@ -33,7 +45,6 @@ export function ListingsLayout({ children }: { children: ReactNode }) {
           </Link>
           <div className="flex items-center gap-1">
             <LanguageSwitcher />
-            <ThemeSwitcher />
             {isAuthenticated ? (
               <Button asChild size="sm" variant="secondary" className="ml-1">
                 <Link to="/">{t("listing.myCabinet")}</Link>
@@ -53,10 +64,10 @@ export function ListingsLayout({ children }: { children: ReactNode }) {
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-16 sm:px-6">{children}</main>
       <footer className="border-t border-border/60 py-6 text-center text-xs text-muted-foreground">
-        {t("listing.footer")}{" "}
-        <Link to="/register" className="text-primary hover:underline">
-          {t("listing.footerCta")}
-        </Link>
+        {t("listing.contactTitle")}:{" "}
+        <a href="mailto:ahmedovodil2002@gmail.com" className="font-medium text-foreground underline-offset-4 hover:underline">
+          ahmedovodil2002@gmail.com
+        </a>
       </footer>
     </div>
   );
@@ -220,19 +231,12 @@ export function ListingCard({ listing, index = 0 }: { listing: Listing; index?: 
               {t(`properties.kind.${listing.kind}`)}
             </span>
             {isNew && (
-              <span className="flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground shadow-sm">
+              <span className="flex items-center gap-1 rounded-full bg-[linear-gradient(135deg,#8b5cf6,#d946ef_55%,#ec4899)] px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
                 <Sparkles className="size-3" aria-hidden />
                 {t("listing.isNew")}
               </span>
             )}
           </div>
-          {listing.photos.length > 1 && (
-            <span className="flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-xs text-white backdrop-blur">
-              <Camera className="size-3" aria-hidden />
-              <span className="tabular">{listing.photos.length}</span>
-              <span className="sr-only">{t("listing.photoCount", { count: listing.photos.length })}</span>
-            </span>
-          )}
         </div>
       </div>
       <div className="flex flex-1 flex-col p-4">

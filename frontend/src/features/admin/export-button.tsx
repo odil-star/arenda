@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { downloadExport } from "@/api/admin";
+import { useCurrentUser } from "@/components/layout/use-current-user";
 import { cn } from "@/lib/utils";
 
 interface ExportButtonProps {
@@ -19,6 +20,7 @@ interface ExportButtonProps {
 /** Скачивает CSV того, что админ сейчас видит в списке. */
 export function ExportButton({ path, name, params, className }: ExportButtonProps) {
   const { t } = useTranslation();
+  const { adminRole } = useCurrentUser();
   const [busy, setBusy] = useState(false);
 
   const run = async () => {
@@ -31,6 +33,8 @@ export function ExportButton({ path, name, params, className }: ExportButtonProp
       setBusy(false);
     }
   };
+
+  if (adminRole !== "admin") return null; // выгрузки ПДн — только полный администратор (поддержке сервер откажет)
 
   return (
     <Button

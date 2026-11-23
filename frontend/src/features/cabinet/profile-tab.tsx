@@ -1,4 +1,4 @@
-import { KeyRound, Languages, LogOut, Palette, Send, UserRound } from "lucide-react";
+import { Bell, KeyRound, Languages, LogOut, Palette, Send, UserRound } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { errorKind, serverMessages } from "@/api/errors";
 import { useSetTenantPassword, useTenantTelegramCode, useTenantTelegramUnlink, useUpdateTenantProfile, type TenantMe } from "@/api/portal";
 import { useAuth } from "@/features/auth/auth-context";
+import { DeviceSettings } from "@/features/profile/device-settings";
 import { TelegramCard } from "@/features/profile/telegram-card";
 import { asLanguage } from "@/lib/format";
 import { useTheme } from "@/lib/theme-context";
@@ -66,6 +67,9 @@ export function ProfileTab({ me, name }: { me: TenantMe | undefined; name: strin
         </Disclosure>
         <Disclosure icon={<Send />} title={t("profile.telegramTitle")} value={t(me.telegram_linked ? "cabinet.telegramOn" : "cabinet.telegramOff")}>
           <TenantTelegram linked={me.telegram_linked} />
+        </Disclosure>
+        <Disclosure icon={<Bell />} title={t("pwa.title")}>
+          <DeviceSettings />
         </Disclosure>
       </div>
 

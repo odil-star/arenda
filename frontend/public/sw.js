@@ -42,3 +42,37 @@ self.addEventListener("fetch", (event) => {
     );
   }
 });
+
+/* Web Push: сервер шлёт JSON {title, body, url}. */
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { body: event.data ? event.data.text() : "" };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || "Arenda", {
+      body: data.body || "",
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      data: { url: data.url || "/" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      for (const w of windows) {
+        if (w.url.startsWith(self.location.origin) && "focus" in w) {
+          w.navigate(target);
+          return w.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    }),
+  );
+});

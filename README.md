@@ -219,6 +219,24 @@ Celery beat ежедневно в 09:00 (Ташкент): арендатору �
 - Файлы не раздаются как `/media/`: только через `/api/documents/{id}/download/` с проверкой владельца
   (для S3 — редирект на подписанную ссылку на 5 минут).
 
+## Продакшен (Docker, HTTPS)
+
+Нужен сервер с Docker, DNS-запись домена на этот сервер и открытые порты 80 и 443.
+
+1. `cp .env.example .env` — задайте `DOMAIN`, `LETSENCRYPT_EMAIL`, `POSTGRES_PASSWORD`.
+2. `cp backend/.env.example backend/.env` — задайте `SECRET_KEY`, ключи Payme/Click, `TELEGRAM_BOT_TOKEN`,
+   `ESKIZ_*`, `EMAIL_*`. Случайные `SECRET_KEY` и `POSTGRES_PASSWORD` выдаёт `./scripts/gen-secrets.sh`.
+   `ALLOWED_HOSTS`, `CORS_ORIGINS`, `CSRF_TRUSTED_ORIGINS`, `FRONTEND_URL` и `DATABASE_URL` compose выводит
+   из корневого `.env` сам (они перекрывают `backend/.env`).
+3. `./scripts/init-letsencrypt.sh` — один раз: выпускает сертификат и запускает весь стек.
+   Дальше certbot продлевает сертификат сам, nginx подхватывает его раз в 12 часов.
+4. Фронтенд собирается внутрь образа nginx (`nginx/Dockerfile`) и работает с API на том же домене.
+   После изменений интерфейса: `docker compose up -d --build nginx`.
+5. Файлы: по умолчанию лежат в томе `media`. Для надёжности задайте `AWS_*` (S3/R2) — тогда
+   `scripts/backup.sh` сохраняет только БД, а копии файлов остаются на стороне хранилища.
+6. Бэкапы: `0 3 * * * cd /srv/rent && ./scripts/backup.sh /srv/backups` в cron.
+7. Webhook'и платежей: Payme — `https://<DOMAIN>/api/webhooks/payme/`, Click — `https://<DOMAIN>/api/webhooks/click/`.
+
 ## Документация API, мониторинг, бэкапы
 
 - **OpenAPI/Swagger:** `/api/docs/` и `/api/schema/` (в dev включены; в проде — `API_DOCS_ENABLED=True`).

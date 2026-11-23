@@ -19,6 +19,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .models import User
+from .tokens import revoke_user_tokens
 from .serializers import (
     PasswordChangeSerializer, PasswordResetConfirmSerializer, PasswordResetRequestSerializer, RegisterSerializer,
     UserSerializer,
@@ -94,6 +95,7 @@ class PasswordChangeView(AuthThrottleMixin, APIView):
             raise serializers.ValidationError({"new_password": list(exc.messages)})
         user.set_password(body.validated_data["new_password"])
         user.save(update_fields=["password"])
+        revoke_user_tokens(user)
         return Response(status=204)
 
 
@@ -152,4 +154,5 @@ class PasswordResetConfirmView(AuthThrottleMixin, APIView):
             raise serializers.ValidationError({"password": list(exc.messages)})
         user.set_password(body.validated_data["password"])
         user.save(update_fields=["password"])
+        revoke_user_tokens(user)
         return Response({"detail": "Пароль изменён."})

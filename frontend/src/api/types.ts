@@ -64,6 +64,14 @@ export interface Dashboard {
   overdue: { count: number; amount: Money };
   upcoming_7_days: { count: number; amount: Money };
   leases_expiring_30_days: number;
+  /** последние 12 месяцев, от старого к новому: "YYYY-MM" */
+  months: { month: string; expected: Money; received: Money }[];
+  prev_month: { expected: Money; received: Money };
+  properties_income: { id: number; name: string; received: Money; overdue_count: number }[];
+  /** худшие по дисциплине платежей: on_time из total за 12 месяцев */
+  reliability: { id: number; name: string; total: number; on_time: number }[];
+  vacant_properties: { id: number; name: string; days: number; is_listed: boolean }[];
+  plan: { name: string; max_properties: number | null; used: number; paid_until: ISODate | null } | null;
 }
 
 // ---------- Properties ----------

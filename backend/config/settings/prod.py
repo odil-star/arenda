@@ -1,5 +1,5 @@
 from .base import *  # noqa: F401,F403
-from .base import env
+from .base import REST_FRAMEWORK, env
 
 DEBUG = False
 # Без этих переменных приложение не стартует (ImproperlyConfigured) — это намеренно.
@@ -14,6 +14,10 @@ CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=31536000)
 SECURE_CONTENT_TYPE_NOSNIFF = True
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+
+# За nginx (см. docker-compose) реальный IP клиента — в X-Forwarded-For. Если оставить 0, весь трафик
+# выглядит как один IP, и IP-лимиты (SMS, приглашения) блокируют всех сразу. Без прокси задайте NUM_PROXIES=0.
+REST_FRAMEWORK = {**REST_FRAMEWORK, "NUM_PROXIES": env.int("NUM_PROXIES", default=1)}
 
 # Мониторинг ошибок: включается, только если задан SENTRY_DSN.
 if env("SENTRY_DSN", default=""):

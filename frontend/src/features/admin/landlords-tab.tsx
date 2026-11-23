@@ -112,7 +112,8 @@ export function AdminLandlordsTab() {
 
   /** Действия над арендодателем: на компьютере — иконки, на телефоне — одно меню «⋯», чтобы не сжимать карточку. */
   const actionsFor = (u: AdminUser) => [
-    { key: "view", label: t("admin.landlords.viewAs"), icon: Eye, disabled: !u.is_active, run: () => setViewAs(u) },
+    // «Войти как арендодатель» — только полный админ (сервер откажет поддержке)
+    ...(canWrite ? [{ key: "view", label: t("admin.landlords.viewAs"), icon: Eye, disabled: !u.is_active, run: () => setViewAs(u) }] : []),
     ...(canWrite
       ? [
           {

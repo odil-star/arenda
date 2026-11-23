@@ -48,6 +48,8 @@ export function useFormat() {
         const d = parseDate(value);
         return d ? format(d, "LLL", { locale: dateLocale[lang] }).replace(".", "") : "";
       },
+      /** 0 = понедельник → «пн» / «du» */
+      weekdayShort: (i: number) => format(new Date(2024, 0, 1 + i), "EEEEEE", { locale: dateLocale[lang] }),
       /** «20 млн» / «20 mln» — для осей графиков */
       compact: (value: number) =>
         new Intl.NumberFormat(intlLocale[lang], { notation: "compact", maximumFractionDigits: 1 }).format(value),

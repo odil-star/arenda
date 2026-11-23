@@ -672,6 +672,22 @@ class ReceiptTests(PortalCase):
         data = {"file": png(), **kw}
         return self.tc.post(f"/api/tenant/payments/{(payment or self.payment).pk}/receipts/", data, format="multipart")
 
+    def test_bulk_confirm_skips_foreign_and_already_processed(self):
+        second = self.lease.payments.order_by("due_date")[1]
+        self.assertEqual(self.send().status_code, 201)
+        self.assertEqual(self.send(second).status_code, 201)
+        self.login(self.user_a)
+        ids = [i["id"] for i in self.client.get("/api/receipts/?status=pending").json()["results"]]
+        self.assertEqual(len(ids), 2)
+        r = self.client.post("/api/receipts/bulk-confirm/", {"ids": ids + [999999]}, format="json")
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual((sorted(r.json()["confirmed"]), r.json()["not_found"]), (sorted(ids), [999999]))
+        again = self.client.post("/api/receipts/bulk-confirm/", {"ids": ids}, format="json").json()
+        self.assertEqual((again["confirmed"], sorted(again["failed"])), ([], sorted(ids)))
+        self.login(self.user_b)  # чужой владелец ничего не подтвердит
+        foreign = self.client.post("/api/receipts/bulk-confirm/", {"ids": ids}, format="json").json()
+        self.assertEqual((foreign["confirmed"], foreign["failed"]), ([], []))
+
     def test_tenant_pay_flow_and_landlord_confirms(self):
         row = next(p for p in self.tc.get("/api/tenant/payments/").json()["results"] if p["id"] == self.payment.pk)
         self.assertEqual((row["can_pay"], row["receipt_status"]), (True, "none"))
@@ -880,3 +896,214 @@ class LeaseMediaTests(PortalCase):
         lone = self.make_tenant(name="Без аккаунта")  # жилец ещё не принял приглашение
         self.assertIsNone(notify_tenant(Lease(tenant=lone), "media_added"))
         self.assertFalse(TenantNotification.objects.filter(user__isnull=True).exists())
+
+
+class PushAndReceiptDocTests(PortalCase):
+    def setUp(self):
+        super().setUp()
+        self.tenant = self.make_tenant()
+        self.lease = self.make_lease(tenant=self.tenant)
+        self.user = self.make_tenant_user()
+        self.accept(self.invite(self.tenant)[0], self.user)
+        self.tc = self.client_for(self.user)
+        self.payment = self.lease.payments.order_by("due_date").first()
+
+    SUB = {"endpoint": "https://push.example.com/abc", "keys": {"p256dh": "k" * 20, "auth": "a" * 10}}
+
+    @override_settings(VAPID_PUBLIC_KEY="", VAPID_PRIVATE_KEY="")
+    def test_key_endpoint_reports_disabled_without_keys(self):
+        self.assertEqual(self.tc.get("/api/push/key/").json(), {"enabled": False, "public_key": ""})
+        self.assertEqual(self.anon.get("/api/push/key/").status_code, 401)
+
+    def test_subscribe_is_idempotent_and_moves_between_accounts(self):
+        from .models import PushSubscription
+        for _ in range(2):
+            self.assertEqual(self.tc.post("/api/push/subscription/", self.SUB, format="json").status_code, 201)
+        self.assertEqual(PushSubscription.objects.filter(user=self.user).count(), 1)
+        # то же устройство входит под другим аккаунтом — подписка переходит к нему
+        self.login(self.user_a)
+        self.client.post("/api/push/subscription/", self.SUB, format="json")
+        self.assertEqual(PushSubscription.objects.get().user, self.user_a)
+        # чужую подписку по endpoint удалить нельзя
+        self.tc.delete("/api/push/subscription/", {"endpoint": self.SUB["endpoint"]}, format="json")
+        self.assertEqual(PushSubscription.objects.count(), 1)
+        self.client.delete("/api/push/subscription/", {"endpoint": self.SUB["endpoint"]}, format="json")
+        self.assertEqual(PushSubscription.objects.count(), 0)
+        self.assertEqual(self.tc.post("/api/push/subscription/", {"endpoint": "nope"}, format="json").status_code, 400)
+
+    @override_settings(VAPID_PUBLIC_KEY="pub", VAPID_PRIVATE_KEY="priv")
+    def test_send_push_delivers_dedupes_and_prunes_dead_subscriptions(self):
+        from unittest import mock
+        from . import push
+        from .models import PushSubscription
+        PushSubscription.objects.create(user=self.user, endpoint="https://p/1", p256dh="x", auth="y")
+        PushSubscription.objects.create(user=self.user, endpoint="https://p/2", p256dh="x", auth="y")
+
+        class Gone(Exception):
+            response = type("R", (), {"status_code": 410})()
+
+        def fake(subscription_info, **kw):
+            if subscription_info["endpoint"].endswith("/2"):
+                raise Gone()
+            return None
+
+        with mock.patch.object(push, "webpush", side_effect=fake), \
+                mock.patch.object(push, "WebPushException", Gone):
+            self.assertEqual(push.send_push(self.user, "T", "B", dedupe_key="k1"), 1)
+            self.assertEqual(push.send_push(self.user, "T", "B", dedupe_key="k1"), 0)  # дубль
+        self.assertEqual(list(PushSubscription.objects.values_list("endpoint", flat=True)), ["https://p/1"])
+
+    def test_send_push_is_noop_when_disabled(self):
+        from . import push
+        self.assertEqual(push.send_push(self.user, "T", "B"), 0)
+
+    def test_generate_vapid_produces_usable_keys(self):
+        from io import StringIO
+        from django.core.management import call_command
+        from py_vapid import Vapid
+        out = StringIO()
+        call_command("generate_vapid", stdout=out)
+        keys = dict(line.split("=", 1) for line in out.getvalue().strip().splitlines())
+        Vapid.from_string(keys["VAPID_PRIVATE_KEY"])  # не бросает
+        self.assertEqual(len(keys["VAPID_PUBLIC_KEY"]), 87)  # 65 байт в base64url
+
+    def test_receipt_document_only_for_own_paid_payments(self):
+        url = f"/api/tenant/payments/{self.payment.pk}/receipt/?as=html"
+        self.assertEqual(self.tc.get(url).status_code, 404)  # ещё ничего не оплачено
+        from leasing.services import apply_payment
+        apply_payment(payment_id=self.payment.pk, amount=1_000_000, provider="manual", external_id="r1",
+                      owner=self.user_a, actor=self.user_a)
+        r = self.tc.get(url)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertIn("КВИТАНЦИЯ", r.content.decode())
+        self.assertIn("1 000 000", r.content.decode())
+        other = self.client_for(self.make_tenant_user("other@example.com"))
+        self.assertEqual(other.get(url).status_code, 404)  # чужой платёж не раскрываем
+
+
+class SoftAuthenticator:
+    """Программный аутентификатор: делает то же, что отпечаток/Face ID в телефоне (ключ P-256, формат none)."""
+
+    def __init__(self):
+        from cryptography.hazmat.primitives.asymmetric import ec
+        self.key = ec.generate_private_key(ec.SECP256R1())
+        self.credential_id = b"cred-" + bytes(range(20))
+        self.counter = 0
+
+    @staticmethod
+    def b64(data):
+        from webauthn.helpers import bytes_to_base64url
+        return bytes_to_base64url(data)
+
+    def _client(self, kind, challenge, origin):
+        import json
+        return json.dumps({"type": kind, "challenge": challenge, "origin": origin}).encode()
+
+    def register(self, options, origin):
+        import hashlib
+        import struct
+        import cbor2
+        nums = self.key.public_key().public_numbers()
+        cose = cbor2.dumps({1: 2, 3: -7, -1: 1, -2: nums.x.to_bytes(32, "big"), -3: nums.y.to_bytes(32, "big")})
+        auth = (hashlib.sha256(options["rp"]["id"].encode()).digest() + bytes([0x45]) + struct.pack(">I", 0)
+                + bytes(16) + struct.pack(">H", len(self.credential_id)) + self.credential_id + cose)
+        client = self._client("webauthn.create", options["challenge"], origin)
+        return {
+            "id": self.b64(self.credential_id), "rawId": self.b64(self.credential_id), "type": "public-key",
+            "response": {"clientDataJSON": self.b64(client),
+                         "attestationObject": self.b64(cbor2.dumps({"fmt": "none", "attStmt": {}, "authData": auth}))},
+            "clientExtensionResults": {},
+        }
+
+    def login(self, options, origin, tamper=False):
+        import hashlib
+        import struct
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import ec
+        self.counter += 1
+        auth = hashlib.sha256(options["rpId"].encode()).digest() + bytes([0x05]) + struct.pack(">I", self.counter)
+        client = self._client("webauthn.get", options["challenge"], origin)
+        signed = auth + hashlib.sha256(client).digest()
+        if tamper:
+            signed += b"x"
+        return {
+            "id": self.b64(self.credential_id), "rawId": self.b64(self.credential_id), "type": "public-key",
+            "response": {"clientDataJSON": self.b64(client), "authenticatorData": self.b64(auth),
+                         "signature": self.b64(self.key.sign(signed, ec.ECDSA(hashes.SHA256()))), "userHandle": None},
+            "clientExtensionResults": {},
+        }
+
+
+class PasskeyTests(PortalCase):
+    def setUp(self):
+        super().setUp()
+        from django.conf import settings
+        self.origin, self.device = settings.WEBAUTHN_ORIGINS[0], SoftAuthenticator()
+        self.user = self.make_tenant_user()
+        self.uc = self.client_for(self.user)
+
+    def enroll(self):
+        options = self.uc.post("/api/auth/passkeys/register/options/").json()
+        self.assertTrue(options["authenticatorSelection"]["residentKey"] == "required")
+        return self.uc.post("/api/auth/passkeys/register/verify/",
+                            {"credential": self.device.register(options, self.origin), "name": "iPhone"}, format="json")
+
+    def sign_in(self, **kw):
+        data = self.anon.post("/api/auth/passkeys/login/options/").json()
+        credential = self.device.login(data["options"], self.origin, **kw)
+        return self.anon.post("/api/auth/passkeys/login/verify/",
+                              {"session": data["session"], "credential": credential}, format="json"), data
+
+    def test_register_login_and_tokens_work(self):
+        from .models import WebAuthnCredential
+        self.assertEqual(self.enroll().status_code, 201)
+        self.assertEqual(WebAuthnCredential.objects.get().name, "iPhone")
+        r, _ = self.sign_in()
+        self.assertEqual(r.status_code, 200, r.content)
+        me = APIClient()
+        me.credentials(HTTP_AUTHORIZATION=f"Bearer {r.json()['access']}")
+        self.assertEqual(me.get("/api/tenant/me/").status_code, 200)
+        self.assertEqual(WebAuthnCredential.objects.get().sign_count, 1)
+        self.assertEqual(self.sign_in()[0].status_code, 200)  # счётчик растёт, повторный вход работает
+
+    def test_challenge_is_single_use_and_bad_signature_rejected(self):
+        self.enroll()
+        bad, _ = self.sign_in(tamper=True)
+        self.assertEqual(bad.status_code, 400)
+        r, data = self.sign_in()
+        self.assertEqual(r.status_code, 200)
+        replay = self.anon.post("/api/auth/passkeys/login/verify/", {
+            "session": data["session"], "credential": self.device.login(data["options"], self.origin)}, format="json")
+        self.assertEqual(replay.status_code, 400)  # тот же челлендж второй раз не принимается
+
+    def test_wrong_origin_unknown_device_and_blocked_user(self):
+        self.enroll()
+        data = self.anon.post("/api/auth/passkeys/login/options/").json()
+        evil = self.device.login(data["options"], "https://evil.example")
+        self.assertEqual(self.anon.post("/api/auth/passkeys/login/verify/",
+                         {"session": data["session"], "credential": evil}, format="json").status_code, 400)
+        other = SoftAuthenticator()
+        other.credential_id = b"other-credential-id-0000"
+        data = self.anon.post("/api/auth/passkeys/login/options/").json()
+        self.assertEqual(self.anon.post("/api/auth/passkeys/login/verify/", {
+            "session": data["session"], "credential": other.login(data["options"], self.origin)}, format="json").status_code, 400)
+        self.user.is_active = False
+        self.user.save()
+        self.assertEqual(self.sign_in()[0].status_code, 400)
+
+    def test_list_delete_only_own_and_registration_needs_auth(self):
+        self.enroll()
+        self.assertEqual(self.anon.post("/api/auth/passkeys/register/options/").status_code, 401)
+        item = self.uc.get("/api/auth/passkeys/").json()[0]
+        stranger = self.client_for(self.make_tenant_user("x@example.com"))
+        self.assertEqual(stranger.get("/api/auth/passkeys/").json(), [])
+        self.assertEqual(stranger.delete(f"/api/auth/passkeys/{item['id']}/").status_code, 404)
+        self.assertEqual(self.uc.delete(f"/api/auth/passkeys/{item['id']}/").status_code, 204)
+        self.assertEqual(self.sign_in()[0].status_code, 400)  # удалённый ключ больше не входит
+
+    def test_same_device_cannot_be_registered_twice(self):
+        self.assertEqual(self.enroll().status_code, 201)
+        r = self.uc.post("/api/auth/passkeys/register/options/").json()
+        again = self.uc.post("/api/auth/passkeys/register/verify/",
+                             {"credential": self.device.register(r, self.origin)}, format="json")
+        self.assertEqual(again.status_code, 400)

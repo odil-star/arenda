@@ -7,6 +7,7 @@ import type { Dashboard } from "@/api/types";
 import { todayISO, useFormat } from "@/lib/format";
 import { useCountUp, usePrefersReducedMotion } from "@/lib/hooks";
 import { cn, toNumber } from "@/lib/utils";
+import { Delta } from "./insights";
 
 function StoryLine({ icon: Icon, tone, children }: { icon: typeof Clock; tone: string; children: ReactNode }) {
   return (
@@ -63,7 +64,7 @@ function CollectionRing({ percent, received, rest }: { percent: number; received
   );
 }
 
-function ReceivedSummary({ month, received, expected }: { month: string; received: number; expected: number }) {
+function ReceivedSummary({ month, received, expected, prevReceived }: { month: string; received: number; expected: number; prevReceived?: number }) {
   const { t } = useTranslation();
   const fmt = useFormat();
   return (
@@ -72,7 +73,10 @@ function ReceivedSummary({ month, received, expected }: { month: string; receive
       <p className="mt-1 font-display text-[28px] font-semibold leading-tight tracking-tight tabular sm:text-4xl">
         {fmt.money(received)}
       </p>
-      <p className="mt-0.5 text-sm text-muted-foreground tabular">{t("dashboard.ofExpected", { amount: fmt.money(expected) })}</p>
+      <p className="mt-0.5 text-sm text-muted-foreground tabular">
+        {t("dashboard.ofExpected", { amount: fmt.money(expected) })}
+        {prevReceived !== undefined && <Delta now={received} prev={prevReceived} className="ml-2" />}
+      </p>
     </>
   );
 }
@@ -86,6 +90,7 @@ export function CollectionCard({ data }: { data: Dashboard }) {
   const rest = Math.max(0, expected - received);
   const percent = expected > 0 ? Math.min(100, Math.round((received / expected) * 100)) : 0;
   const receivedShown = useCountUp(received);
+  const prevReceived = toNumber(data.prev_month?.received ?? 0);
   const month = fmt.month(todayISO());
 
   return (
@@ -101,13 +106,13 @@ export function CollectionCard({ data }: { data: Dashboard }) {
         <div className="flex items-center gap-5 sm:contents">
           <CollectionRing percent={percent} received={received} rest={rest} />
           <div className="min-w-0 sm:hidden">
-            <ReceivedSummary month={month} received={receivedShown} expected={expected} />
+            <ReceivedSummary month={month} received={receivedShown} expected={expected} prevReceived={prevReceived} />
           </div>
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="hidden sm:block">
-            <ReceivedSummary month={month} received={receivedShown} expected={expected} />
+            <ReceivedSummary month={month} received={receivedShown} expected={expected} prevReceived={prevReceived} />
           </div>
 
           <ul className="mt-5 space-y-2 text-sm sm:mt-4">
