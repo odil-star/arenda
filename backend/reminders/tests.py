@@ -18,10 +18,13 @@ class RecordingSender:
     sent = []
     fail = False
 
-    def send(self, chat_id, text):
+    markups = []
+
+    def send(self, chat_id, text, reply_markup=None):
         if RecordingSender.fail:
             raise RuntimeError("канал недоступен")
         RecordingSender.sent.append((chat_id, text))
+        RecordingSender.markups.append(reply_markup)
 
 
 class ReminderTests(OwnerTestCase):
@@ -249,3 +252,117 @@ class ManualRemindAndOwnerEventTests(OwnerTestCase):
         RecordingSender.fail = True
         receipt.pk = 8
         self.assertFalse(notify_owner_receipt(receipt, sender=self.sender))  # сбой канала не пробрасывается
+
+
+class BotReceiptTests(OwnerTestCase):
+    """Чеки через бота: жилец присылает файл, владелец принимает/отклоняет кнопкой."""
+
+    def setUp(self):
+        import shutil
+        import tempfile
+
+        from portal.tests import TENANT_PASSWORD  # noqa: F401
+        from portal.services import create_tenant_user
+
+        super().setUp()
+        self._media = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self._media, ignore_errors=True)
+        override = override_settings(MEDIA_ROOT=self._media)
+        override.enable()
+        self.addCleanup(override.disable)
+        RecordingSender.sent, RecordingSender.markups, RecordingSender.fail = [], [], False
+        self.user_a.telegram_chat_id = 111
+        self.user_a.save()
+        self.tenant = self.make_tenant(telegram_chat_id=900)
+        self.tenant.user = create_tenant_user(email="bot-tenant@example.com", password="T3nant-pass-987")
+        self.tenant.save()
+        self.lease = self.make_lease(tenant=self.tenant)  # платежи в прошлом — месяц уже наступил
+        self.payment = self.lease.payments.order_by("due_date").first()
+
+    PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 64
+
+    def _submit(self, payment=None, data=None, name="check.png"):
+        from .bot_logic import submit_tenant_receipt
+        return submit_tenant_receipt(900, (payment or self.payment).pk, data or self.PNG, name)
+
+    def test_receivable_payments_and_submit(self):
+        from portal.models import PaymentReceipt
+        from .bot_logic import receivable_payments
+
+        _, rows = receivable_payments(900)
+        self.assertIn(self.payment.pk, [p.pk for p in rows])
+        self.assertIn("Чек отправлен", self._submit())
+        receipt = PaymentReceipt.objects.get()
+        self.assertEqual((receipt.status, receipt.owner_id), ("pending", self.user_a.pk))
+        self.assertNotIn(self.payment.pk, [p.pk for p in receivable_payments(900)[1]])  # уже на проверке
+        self.assertIn("Не удалось", self._submit())  # второй чек по тому же платежу
+
+    def test_rejects_wrong_file_type_and_foreign_payment(self):
+        self.assertIn("Не удалось", self._submit(data=b"not an image"))
+        other = self.make_lease(owner=self.user_b, tenant=self.make_tenant(self.user_b, telegram_chat_id=901))
+        foreign = other.payments.first()
+        self.assertIn("нет платежей", self._submit(payment=foreign))
+
+    def test_tenant_without_app_account_cannot_send(self):
+        from .bot_logic import receivable_payments
+
+        self.tenant.user = None
+        self.tenant.save()
+        self.assertIsNone(receivable_payments(900)[1])
+
+    def test_owner_confirms_and_tenant_is_notified(self):
+        from portal.models import PaymentReceipt
+        from .bot_logic import review_receipt
+
+        self._submit()
+        receipt = PaymentReceipt.objects.get()
+        reply, notices = review_receipt(111, receipt.pk, True)
+        self.assertIn("подтверждён", reply)
+        self.assertEqual([chat for chat, _ in notices], [900])
+        receipt.refresh_from_db()
+        self.payment.refresh_from_db()
+        self.assertEqual(receipt.status, "confirmed")
+        self.assertGreater(self.payment.amount_paid, 0)
+        self.assertIn("уже обработан", review_receipt(111, receipt.pk, True)[0])  # повтор безопасен
+
+    def test_owner_rejects(self):
+        from portal.models import PaymentReceipt
+        from .bot_logic import review_receipt
+
+        self._submit()
+        receipt = PaymentReceipt.objects.get()
+        self.assertIn("отклонён", review_receipt(111, receipt.pk, False)[0])
+        receipt.refresh_from_db()
+        self.assertEqual(receipt.status, "rejected")
+
+    def test_foreign_owner_and_tenant_cannot_review(self):
+        from portal.models import PaymentReceipt
+        from .bot_logic import review_receipt
+
+        self._submit()
+        receipt = PaymentReceipt.objects.get()
+        self.user_b.telegram_chat_id = 222
+        self.user_b.save()
+        self.assertIn("уже обработан", review_receipt(222, receipt.pk, True)[0])  # чужой чек не виден
+        self.assertIn("только арендодателю", review_receipt(900, receipt.pk, True)[0])
+        receipt.refresh_from_db()
+        self.assertEqual(receipt.status, "pending")
+
+    def test_owner_notification_carries_buttons(self):
+        RecordingSender.sent.clear()
+        with override_settings(TELEGRAM_SENDER="reminders.tests.RecordingSender"), \
+                self.captureOnCommitCallbacks(execute=True):
+            self._submit()
+        self.assertEqual(RecordingSender.sent[0][0], 111)
+        buttons = RecordingSender.markups[0]["inline_keyboard"][0]
+        self.assertEqual([b["callback_data"].split(":")[1] for b in buttons], ["ok", "no"])
+
+    def test_unlink(self):
+        from .bot_logic import unlink
+
+        self.assertIn("отвязан", unlink(900))
+        self.tenant.refresh_from_db()
+        self.assertIsNone(self.tenant.telegram_chat_id)
+        self.assertIn("отвязан", unlink(111))
+        self.user_a.refresh_from_db()
+        self.assertIsNone(self.user_a.telegram_chat_id)

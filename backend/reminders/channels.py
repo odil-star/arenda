@@ -13,13 +13,16 @@ class SendError(Exception):
 class TelegramSender:
     """Отправка через Bot API (синхронно — для Celery). Токен только из окружения."""
 
-    def send(self, chat_id, text):
+    def send(self, chat_id, text, reply_markup=None):
         token = settings.TELEGRAM_BOT_TOKEN
         if not token:
             raise SendError("TELEGRAM_BOT_TOKEN не задан")
+        payload = {"chat_id": chat_id, "text": text}
+        if reply_markup is not None:
+            payload["reply_markup"] = reply_markup  # inline-кнопки: {"inline_keyboard": [[...]]}
         request = urllib.request.Request(
             f"https://api.telegram.org/bot{token}/sendMessage",
-            data=json.dumps({"chat_id": chat_id, "text": text}).encode(),
+            data=json.dumps(payload).encode(),
             headers={"Content-Type": "application/json"},
         )
         try:

@@ -30,7 +30,7 @@ def tenant_kind(days_left):
     return None
 
 
-def deliver(sender, *, owner, kind, dedupe_key, chat_id, text, payment=None, tenant=None):
+def deliver(sender, *, owner, kind, dedupe_key, chat_id, text, payment=None, tenant=None, reply_markup=None):
     """Отправить сообщение не более одного раза на dedupe_key. Ошибочные пробуем снова."""
     try:
         log, created = NotificationLog.objects.get_or_create(
@@ -47,7 +47,10 @@ def deliver(sender, *, owner, kind, dedupe_key, chat_id, text, payment=None, ten
         if not claimed:
             return False
     try:
-        sender.send(chat_id, text)
+        if reply_markup is None:
+            sender.send(chat_id, text)
+        else:
+            sender.send(chat_id, text, reply_markup=reply_markup)
     except Exception as exc:  # noqa: BLE001 — любая ошибка канала фиксируется в журнале
         NotificationLog.objects.filter(pk=log.pk).update(
             status=NotificationLog.Status.FAILED, error=str(exc)[:500]
@@ -135,10 +138,15 @@ def notify_owner_receipt(receipt, sender=None):
     send_push(owner, payment.lease.property.name, text, url="/receipts", dedupe_key=f"oe:receipt:{receipt.pk}")
     if owner.telegram_chat_id is None:
         return False
+    markup = {"inline_keyboard": [[
+        {"text": t(owner.language, "btn_confirm"), "callback_data": f"rc:ok:{receipt.pk}"},
+        {"text": t(owner.language, "btn_reject"), "callback_data": f"rc:no:{receipt.pk}"},
+    ]]}
     try:
         return deliver(
             sender or get_sender(), owner=owner, kind=NotificationLog.Kind.OWNER_EVENT, payment=payment,
             dedupe_key=f"oe:receipt:{receipt.pk}", chat_id=owner.telegram_chat_id, text=text,
+            reply_markup=markup,
         )
     except Exception:  # noqa: BLE001
         logger.exception("Не удалось уведомить владельца о чеке %s", receipt.pk)

@@ -104,6 +104,109 @@ def pay_info_text(chat_id):
     return "\n\n".join(blocks)
 
 
+def is_tenant(chat_id):
+    return Tenant.objects.filter(telegram_chat_id=chat_id).exists()
+
+
+def language_of(chat_id):
+    return _language(chat_id)
+
+
+def unlink(chat_id):
+    """Отвязать чат от всех записей арендатора и от владельца."""
+    lang = _language(chat_id)
+    Tenant.objects.filter(telegram_chat_id=chat_id).update(telegram_chat_id=None)
+    User.objects.filter(telegram_chat_id=chat_id).update(telegram_chat_id=None)
+    return t(lang, "unlinked")
+
+
+def _error_reason(exc):
+    detail = exc.detail
+    if isinstance(detail, dict):
+        detail = [item for value in detail.values() for item in (value if isinstance(value, list) else [value])]
+    elif not isinstance(detail, list):
+        detail = [detail]
+    return " ".join(str(item) for item in detail)
+
+
+def receivable_payments(chat_id):
+    """Платежи арендатора, к которым сейчас можно приложить чек. Возвращает (язык, список) или (язык, None),
+    если чат привязан, но у жильца нет аккаунта в приложении (чек от его имени отправить нельзя)."""
+    from portal.models import PaymentReceipt
+    from portal.receipts import month_reached
+
+    lang = _language(chat_id)
+    tenants = Tenant.objects.filter(telegram_chat_id=chat_id)
+    if not tenants.exists():
+        return lang, []
+    payments = (Payment.objects.filter(lease__tenant__telegram_chat_id=chat_id, lease__status=Lease.Status.ACTIVE,
+                                       amount_paid__lt=F("amount_due"))
+                .select_related("lease__property", "lease__tenant").order_by("due_date"))
+    pending = set(PaymentReceipt.objects.filter(payment__in=payments, status=PaymentReceipt.Status.PENDING)
+                  .values_list("payment_id", flat=True))
+    rows = [p for p in payments if p.pk not in pending and month_reached(p)]
+    if rows and all(p.lease.tenant.user_id is None for p in rows):
+        return lang, None
+    return lang, [p for p in rows if p.lease.tenant.user_id is not None]
+
+
+def payment_choice_lines(chat_id, payments):
+    lang = _language(chat_id)
+    return [(p.pk, t(lang, "receipt_choice_line", property=p.lease.property.name, amount=money(p.remaining),
+                     due=p.due_date.strftime("%d.%m.%Y"))) for p in payments]
+
+
+def submit_tenant_receipt(chat_id, payment_id, content, filename):
+    """Жилец прислал файл чека в бот. Использует тот же сервис, что и сайт, — те же проверки."""
+    from django.core.files.base import ContentFile
+    from rest_framework.exceptions import ValidationError
+
+    from portal.receipts import submit_receipt
+
+    lang = _language(chat_id)
+    payment = (Payment.objects.filter(pk=payment_id, lease__tenant__telegram_chat_id=chat_id)
+               .select_related("lease__property", "lease__tenant").first())
+    if payment is None or payment.lease.tenant.user_id is None:
+        return t(lang, "receipt_no_payment")
+    file = ContentFile(content, name=filename)
+    try:
+        receipt = submit_receipt(user=payment.lease.tenant.user, payment_id=payment.pk, file=file)
+    except ValidationError as exc:
+        return t(lang, "receipt_error", reason=_error_reason(exc))
+    return t(lang, "receipt_sent", property=payment.lease.property.name, amount=money(receipt.amount))
+
+
+def review_receipt(chat_id, receipt_id, approve):
+    """Владелец нажал «Принять/Отклонить» под уведомлением. Возвращает (ответ владельцу, [(chat_id, текст)])."""
+    from rest_framework.exceptions import ValidationError
+
+    from portal.models import PaymentReceipt
+    from portal.receipts import confirm_receipt, reject_receipt
+
+    owner = User.objects.filter(telegram_chat_id=chat_id).first()
+    if owner is None:
+        return t("ru", "receipt_owner_only"), []
+    lang = owner.language
+    receipt = (PaymentReceipt.objects.filter(pk=receipt_id, owner=owner)
+               .select_related("payment__lease__property", "payment__lease__tenant").first())
+    if receipt is None:
+        return t(lang, "receipt_processed"), []
+    try:
+        if approve:
+            confirm_receipt(receipt_id=receipt.pk, owner=owner, actor=owner)
+        else:
+            reject_receipt(receipt_id=receipt.pk, owner=owner, actor=owner)
+    except ValidationError:
+        return t(lang, "receipt_processed"), []
+    tenant = receipt.payment.lease.tenant
+    params = dict(tenant=tenant.full_name, amount=money(receipt.amount), property=receipt.payment.lease.property.name)
+    notices = []
+    if tenant.telegram_chat_id is not None:
+        notices.append((tenant.telegram_chat_id,
+                        t(tenant.language, "receipt_ok_tenant" if approve else "receipt_no_tenant", **params)))
+    return t(lang, "receipt_ok_owner" if approve else "receipt_no_owner", **params), notices
+
+
 def defaultdict_list(payments):
     grouped = {}
     for payment in payments:
