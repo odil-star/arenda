@@ -22,7 +22,7 @@ from .models import User
 from .tokens import revoke_user_tokens
 from .serializers import (
     PasswordChangeSerializer, PasswordResetConfirmSerializer, PasswordResetRequestSerializer, RegisterSerializer,
-    UserSerializer,
+    TourProgressSerializer, UserSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,30 @@ class MeView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+class TourProgressView(APIView):
+    """POST /api/tour/ {kind, step, done} — прогресс обучения; доступно обеим ролям.
+
+    «Пройдено» не сбрасывается: повторный просмотр из профиля не должен снова включать принудительное обучение.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(request=TourProgressSerializer, responses=OpenApiTypes.OBJECT)
+    def post(self, request):
+        body = TourProgressSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        kind = body.validated_data["kind"]
+        profile = request.user.profile
+        if kind != profile.role:
+            raise serializers.ValidationError({"kind": ["Это обучение не для вашей роли."]})
+        previous = (profile.tours or {}).get(kind) or {}
+        done = bool(previous.get("done")) or body.validated_data["done"]
+        step = previous.get("step", 0) if previous.get("done") else body.validated_data["step"]
+        profile.tours = {**(profile.tours or {}), kind: {"step": step, "done": done}}
+        profile.save(update_fields=["tours"])
+        return Response({"tours_seen": profile.tours_seen})
 
 
 class TelegramLinkView(APIView):

@@ -178,6 +178,7 @@ class TenantMeView(APIView):
             "email": None if user.email.endswith("@phone.invalid") else user.email,
             "language": user.language,
             "has_password": user.has_usable_password(),
+            "tours_seen": user.profile.tours_seen,
             "telegram_linked": any(t.telegram_chat_id for t in records),
             "landlords": [
                 {"tenant": t.pk, "full_name": t.full_name, "landlord_name": services.landlord_name(t.owner)}

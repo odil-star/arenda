@@ -204,3 +204,39 @@ class RefreshRevocationTests(APITestCase):
                              {"uid": uid, "token": token, "password": "Brand-new-pass-77"}, format="json")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(self.refresh(stolen["refresh"]).status_code, 401)
+
+
+class TourProgressTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.owner = User.objects.create_user("tour-owner@example.com", "Str0ng-pass-987")
+        self.client.force_authenticate(self.owner)
+
+    def test_progress_is_saved_and_exposed_in_me(self):
+        self.assertEqual(self.client.get("/api/me/").json()["tours_seen"], [])
+        r = self.client.post("/api/tour/", {"kind": "landlord", "step": 3, "done": False}, format="json")
+        self.assertEqual((r.status_code, r.json()["tours_seen"]), (200, []))
+        self.owner.profile.refresh_from_db()
+        self.assertEqual(self.owner.profile.tours["landlord"], {"step": 3, "done": False})
+        r = self.client.post("/api/tour/", {"kind": "landlord", "step": 6, "done": True}, format="json")
+        self.assertEqual(r.json()["tours_seen"], ["landlord"])
+        self.assertEqual(self.client.get("/api/me/").json()["tours_seen"], ["landlord"])
+
+    def test_done_is_sticky(self):
+        self.client.post("/api/tour/", {"kind": "landlord", "step": 6, "done": True}, format="json")
+        r = self.client.post("/api/tour/", {"kind": "landlord", "step": 1, "done": False}, format="json")
+        self.assertEqual(r.json()["tours_seen"], ["landlord"])
+
+    def test_foreign_role_and_bad_input_rejected(self):
+        self.assertEqual(self.client.post("/api/tour/", {"kind": "tenant", "step": 0, "done": True}, format="json").status_code, 400)
+        self.assertEqual(self.client.post("/api/tour/", {"kind": "landlord", "step": -1}, format="json").status_code, 400)
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.post("/api/tour/", {"kind": "landlord", "step": 0}, format="json").status_code, 401)
+
+    def test_tenant_progress_in_tenant_me(self):
+        tenant = User.objects.create_user("tour-tenant@example.com", "Str0ng-pass-987")
+        tenant.profile.role = "tenant"
+        tenant.profile.save()
+        self.client.force_authenticate(tenant)
+        self.assertEqual(self.client.post("/api/tour/", {"kind": "tenant", "step": 6, "done": True}, format="json").status_code, 200)
+        self.assertEqual(self.client.get("/api/tenant/me/").json()["tours_seen"], ["tenant"])

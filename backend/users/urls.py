@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     PasswordResetConfirmView, PasswordResetRequestView,
     MeView, PasswordChangeView, RegisterView, TelegramLinkView, ThrottledTokenObtainPairView, ThrottledTokenRefreshView,
+    TourProgressView,
 )
 
 urlpatterns = [
@@ -14,4 +15,5 @@ urlpatterns = [
     path("me/", MeView.as_view()),
     path("me/password/", PasswordChangeView.as_view()),
     path("me/telegram-link/", TelegramLinkView.as_view()),
+    path("tour/", TourProgressView.as_view()),
 ]

@@ -1,6 +1,6 @@
 import { AnnouncementBanner } from "@/components/layout/announcement-banner";
 import { Headset } from "lucide-react";
-import type { ComponentType } from "react";
+import { useState, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { Avatar } from "@/components/common/avatar";
@@ -16,6 +16,7 @@ import { groupPayments } from "./cabinet-logic";
 import { ContractTab } from "./contract-tab";
 import { HomeTab } from "./home-tab";
 import { PaymentsTab } from "./payments-tab";
+import { OnboardingTour, useAutoTour } from "@/components/common/onboarding-tour";
 import { ProfileTab } from "./profile-tab";
 
 type Tab = "home" | "payments" | "contract" | "profile";
@@ -34,6 +35,12 @@ export function CabinetPage() {
   const leases = useTenantLeases();
   const payments = useTenantPayments();
   const [params, setParams] = useSearchParams();
+  // Обучение: при первом входе открывается само (помним на сервере), позже — по кнопке в профиле.
+  const [tourRequested, setTourRequested] = useState(false);
+  const auto = useAutoTour("tenant", me.data?.tours_seen, !!me.data && !!leases.data);
+  const tourOpen = tourRequested || auto.open;
+  // жильцу без договоров показывать оплату и договор пока нечем
+  const tourSkip = leases.data && leases.data.length === 0 ? ["pay", "contract"] : [];
   const raw = params.get("tab");
   const tab: Tab = TABS.some((x) => x.id === raw) ? (raw as Tab) : "home";
   const setTab = (id: Tab) => {
@@ -59,6 +66,7 @@ export function CabinetPage() {
         <div className="flex items-center gap-1">
         <Link
           to="/cabinet/support"
+          data-tour="support"
           aria-label={supportUnread > 0 ? `${t("support.title")} (${t("support.unreadCount", { count: supportUnread })})` : t("support.title")}
           className="relative flex size-11 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
@@ -95,8 +103,20 @@ export function CabinetPage() {
         {tab === "home" && <HomeTab payments={payments.data} leases={leases.data} />}
         {tab === "payments" && <PaymentsTab all={payments.data} leases={leases.data} />}
         {tab === "contract" && <ContractTab leases={leases.data} />}
-        {tab === "profile" && <ProfileTab me={me.data} name={name} />}
+        {tab === "profile" && <ProfileTab me={me.data} name={name} onTour={() => setTourRequested(true)} />}
       </main>
+
+      {tourOpen && (
+        <OnboardingTour
+          kind="tenant"
+          open
+          skip={tourSkip}
+          onClose={() => {
+            setTourRequested(false);
+            auto.close();
+          }}
+        />
+      )}
 
       <nav aria-label={t("cabinet.nav")} className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <ul ref={drag.ref} {...drag.handlers} style={{ touchAction: "none" }} className="liquid-glass pointer-events-auto relative mx-auto grid select-none max-w-md grid-cols-4 rounded-[1.75rem] p-1.5">
@@ -107,6 +127,7 @@ export function CabinetPage() {
               <li key={id}>
                 <button
                   type="button"
+                  data-tour={`tab-${id}`}
                   aria-current={tab === id ? "page" : undefined}
                   onClick={() => setTab(id)}
                   className={cn(

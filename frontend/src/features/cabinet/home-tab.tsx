@@ -66,7 +66,7 @@ export function HomeTab({ payments, leases }: { payments: TenantPayment[] | unde
           {target.can_pay && (
             <>
               <Requisites payment={target} />
-              <Button size="lg" className="w-full" onClick={() => navigate(`/cabinet/pay/${target.id}`)}>
+              <Button size="lg" className="w-full" data-tour="pay-btn" onClick={() => navigate(`/cabinet/pay/${target.id}`)}>
                 {t("cabinet.pay.sendReceipt", { amount: fmt.money(target.remaining) })}
               </Button>
               <details className="group text-sm">

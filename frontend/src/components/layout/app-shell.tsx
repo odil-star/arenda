@@ -1,8 +1,10 @@
 import { ChevronLeft, Headset, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { leasesApi, propertiesApi, tenantsApi, useMe } from "@/api/hooks";
 import { useSupportUnread } from "@/api/support";
+import { OnboardingTour, useAutoTour } from "@/components/common/onboarding-tour";
 import { cn } from "@/lib/utils";
 
 const buttonClass =
@@ -20,6 +22,9 @@ import { UserCard } from "./user-card";
 import { useCurrentUser } from "./use-current-user";
 
 const COLLAPSED_KEY = "sidebar.collapsed";
+
+/** Метка для обучения на настоящем экране: "/properties" → "nav-properties". */
+const navTourId = (to: string) => `nav-${to === "/" ? "dashboard" : to.replace(/^\//, "").split("/")[0]}`;
 
 function readCollapsed(): boolean {
   try {
@@ -47,6 +52,7 @@ function SidebarLink({ item, collapsed, badge = 0 }: { item: NavItem; collapsed:
     <NavLink
       to={to}
       end={end}
+      data-tour={navTourId(to)}
       title={collapsed ? t(labelKey) : undefined}
       aria-label={badge > 0 ? `${t(labelKey)} (${t("support.unreadCount", { count: badge })})` : undefined}
       className={({ isActive }) =>
@@ -112,6 +118,7 @@ function Sidebar() {
       <div className="px-3 pb-2 pt-1">
         <Link
           to="/leases/new"
+          data-tour="quick-add"
           title={collapsed ? t("quick.newLease") : undefined}
           aria-label={collapsed ? t("quick.newLease") : undefined}
           className={cn(
@@ -166,6 +173,7 @@ function BottomTab({ item, active }: { item: NavItem; active: boolean }) {
     <NavLink
       to={to}
       end={end}
+      data-tour={navTourId(to)}
       aria-label={t(labelKey)}
       draggable={false}
       className={cn("flex h-12 items-center justify-center text-muted-foreground transition-transform active:scale-90", active && "text-foreground")}
@@ -219,6 +227,7 @@ function SupportButton() {
   return (
     <Link
       to="/support"
+      data-tour="support"
       aria-label={unread > 0 ? `${t("nav.support")} (${t("support.unreadCount", { count: unread })})` : t("nav.support")}
       className="relative flex size-11 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden"
     >
@@ -248,11 +257,35 @@ function useFullBleed() {
   return pathname === "/support" || pathname === "/admin/support";
 }
 
+/**
+ * Обязательное обучение арендодателя при первом входе: закрыть нельзя, только пройти до конца.
+ * Шаги, которые он уже сделал сам (есть объект, жилец, договор), не показываем.
+ */
+function LandlordTour() {
+  const { role, isAdmin } = useCurrentUser();
+  const enabled = role === "landlord" && !isAdmin;
+  const me = useMe(enabled);
+  const properties = propertiesApi.useList({ page_size: 1 }, { enabled });
+  const tenants = tenantsApi.useList({ page_size: 1 }, { enabled });
+  const leases = leasesApi.useList({ page_size: 1 }, { enabled });
+  const ready = enabled && !!me.data && !properties.isPending && !tenants.isPending && !leases.isPending;
+  const tour = useAutoTour("landlord", me.data?.tours_seen, ready);
+  if (!tour.open) return null;
+  const skip = [
+    ...((properties.data?.count ?? 0) > 0 ? ["properties"] : []),
+    ...((tenants.data?.count ?? 0) > 0 ? ["tenants"] : []),
+    ...((leases.data?.count ?? 0) > 0 ? ["lease"] : []),
+  ];
+  return <OnboardingTour kind="landlord" open forced skip={skip} onClose={tour.close} />;
+}
+
 export function AppShell() {
   const { t } = useTranslation();
   const { pathname } = useLocation();
   const { isAdmin } = useCurrentUser();
   const fullBleed = useFullBleed();
+  const [searchParams] = useSearchParams();
+  const openThread = !!searchParams.get("thread");
   return (
     <div className={cn("flex", fullBleed ? "h-dvh overflow-hidden" : "min-h-dvh")}>
       <a
@@ -283,7 +316,9 @@ export function AppShell() {
         )}
       </div>
       {/* в чате нижнее меню не нужно: оно закрывало бы поле ввода */}
-      {!fullBleed && (isAdmin ? <AdminBottomNav /> : <BottomNav />)}
+      {/* в админском чате меню остаётся на списке диалогов (иначе из чата некуда уйти); в открытой переписке скрыто */}
+      {(!fullBleed || (isAdmin && !openThread)) && (isAdmin ? <AdminBottomNav /> : <BottomNav />)}
+      <LandlordTour />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Bell, KeyRound, Languages, LogOut, Palette, Send, UserRound } from "lucide-react";
+import { Bell, GraduationCap, KeyRound, Languages, LogOut, Palette, Send, UserRound } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -40,7 +40,7 @@ function Segmented<T extends string>({ label, value, options, onChange }: { labe
   );
 }
 
-export function ProfileTab({ me, name }: { me: TenantMe | undefined; name: string }) {
+export function ProfileTab({ me, name, onTour }: { me: TenantMe | undefined; name: string; onTour: () => void }) {
   const { t, i18n } = useTranslation();
   const { signOut } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -104,6 +104,10 @@ export function ProfileTab({ me, name }: { me: TenantMe | undefined; name: strin
           />
         </div>
       </div>
+
+      <Button variant="secondary" className="w-full" onClick={onTour}>
+        <GraduationCap aria-hidden /> {t("tour.label")}
+      </Button>
 
       <Button variant="secondary" className="w-full text-danger" onClick={signOut}>
         <LogOut aria-hidden /> {t("auth.logout")}

@@ -1,8 +1,10 @@
+import { GraduationCap } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Avatar } from "@/components/common/avatar";
 import { FormAlert, FormField } from "@/components/common/form-field";
+import { OnboardingTour } from "@/components/common/onboarding-tour";
 import { PageHeader } from "@/components/common/page-header";
 import { ErrorState } from "@/components/common/states";
 import { RoleBadge } from "@/components/layout/user-card";
@@ -233,6 +235,7 @@ export function ProfilePage() {
   const user = useCurrentUser();
   const codeMutation = useOwnerTelegramCode();
   const unlinkMutation = useOwnerTelegramUnlink();
+  const [tourOpen, setTourOpen] = useState(false);
 
   if (me.isError) return <ErrorState error={me.error} onRetry={() => void me.refetch()} />;
 
@@ -264,11 +267,17 @@ export function ProfilePage() {
               <h2 className="mb-3 text-base font-semibold">{t("pwa.title")}</h2>
               <DeviceSettings />
             </Card>
+            {user.role === "landlord" && !user.isAdmin && (
+              <Button variant="secondary" className="w-full" onClick={() => setTourOpen(true)}>
+                <GraduationCap aria-hidden /> {t("tour.label")}
+              </Button>
+            )}
           </>
         ) : (
           <Skeleton className="h-64 w-full" />
         )}
       </div>
+      {tourOpen && <OnboardingTour kind="landlord" open onClose={() => setTourOpen(false)} />}
     </div>
   );
 }

@@ -47,6 +47,7 @@ export function QuickActionsButton() {
       <button
         type="button"
         onClick={() => setOpen(true)}
+        data-tour="quick-add"
         aria-label={t("quick.title")}
         aria-haspopup="dialog"
         className="relative z-10 flex size-14 -translate-y-3.5 items-center justify-center rounded-full border border-white/30 bg-primary bg-[linear-gradient(180deg,rgba(255,255,255,0.4),transparent_60%)] text-primary-foreground shadow-[0_8px_24px_var(--glow),inset_0_1px_0_rgba(255,255,255,0.35)] ring-4 ring-background/40 transition-transform active:scale-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

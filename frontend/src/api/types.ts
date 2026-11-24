@@ -51,6 +51,8 @@ export interface Me {
   passport_data?: string;
   language: Language;
   telegram_linked: boolean;
+  /** какие обучения пользователь уже прошёл до конца ("landlord" / "tenant") */
+  tours_seen?: string[];
   /** суперпользователь: виден раздел «Админ» */
   is_admin?: boolean;
   /** admin — полный доступ, support — только просмотр, null/нет — обычный арендодатель */

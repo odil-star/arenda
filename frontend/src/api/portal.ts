@@ -115,6 +115,7 @@ export interface TenantMe {
   language: "ru" | "uz";
   has_password: boolean;
   telegram_linked: boolean;
+  tours_seen?: string[];
   landlords: { tenant: number; full_name: string; landlord_name: string }[];
 }
 
@@ -162,6 +163,20 @@ export function useTenantMe(enabled = true) {
 }
 
 export type TenantProfileInput = Partial<Pick<TenantMe, "first_name" | "last_name" | "phone" | "language">>;
+
+/** Прогресс обучения (оба вида пользователей): сервер помнит, на каком шаге человек остановился и прошёл ли он обучение. */
+export function useSaveTourProgress() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { kind: Role; step: number; done: boolean }) =>
+      (await api.post<{ tours_seen: string[] }>("/tour/", input)).data,
+    onSuccess: ({ tours_seen }) => {
+      const patch = <T extends { tours_seen?: string[] }>(old: T | undefined) => (old ? { ...old, tours_seen } : old);
+      qc.setQueryData(["me"], patch);
+      qc.setQueryData(["tenant", "me"], patch);
+    },
+  });
+}
 
 export function useUpdateTenantProfile() {
   const qc = useQueryClient();

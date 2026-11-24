@@ -174,7 +174,10 @@
     "endsIn_other": "{{count}} kundan keyin",
     "extend": "1 yilga uzaytirish",
     "extended": "Shartnoma 1 yilga uzaytirildi",
-    "filter": { "label": "Obyekt", "all": "Barcha obyektlar" },
+    "filter": {
+      "label": "Obyekt",
+      "all": "Barcha obyektlar"
+    },
     "customize": {
       "button": "Sozlash",
       "sections": {
@@ -190,6 +193,8 @@
     "attention": {
       "title": "Diqqat talab qiladi",
       "overdue_one": "Qarz {{amount}} · {{count}} kun kechikish",
+      "overdue_few": "Qarz {{amount}} · {{count}} kun kechikish",
+      "overdue_many": "Qarz {{amount}} · {{count}} kun kechikish",
       "overdue_other": "Qarz {{amount}} · {{count}} kun kechikish"
     },
     "calendar": {
@@ -223,7 +228,13 @@
       "planUsed": "Obyektlar: {{used}} / {{limit}}",
       "planUnlimited": "Obyektlar: {{used}}, cheklovsiz",
       "paidUntil": "{{date}} gacha toʻlangan",
-      "upgrade": "Tarifni kengaytirish"
+      "upgrade": "Tarifni kengaytirish",
+      "months_few": "{{count}} oy",
+      "months_many": "{{count}} oy",
+      "vacantDays_few": "{{count}} kun ijarachisiz",
+      "vacantDays_many": "{{count}} kun ijarachisiz",
+      "overdueTimes_few": "{{count}} kechikish",
+      "overdueTimes_many": "{{count}} kechikish"
     },
     "start": {
       "title": "Nimadan boshlash kerak",
@@ -1393,6 +1404,7 @@
     },
     "kindAll": "Hammasi",
     "resetFilters": "Filtrlarni tozalash",
+    "showMore": "Yana ko'rsatish",
     "removeFilter": "Filtrni olib tashlash: {{label}}",
     "priceUpTo": "{{price}} gacha",
     "isNew": "Yangi",
@@ -1510,5 +1522,255 @@
     "remove": "Qurilmani oʻchirish",
     "unsupported": "Bu brauzer barmoq izi bilan kirishni qoʻllamaydi.",
     "createdOn": "Qoʻshilgan: {{date}}"
+  },
+  "tour": {
+    "step": "{{current}}-qadam, jami {{total}}",
+    "next": "Keyingisi",
+    "back": "Orqaga",
+    "skip": "O‘tkazib yuborish",
+    "done": "Boshlash",
+    "tenant": {
+      "steps": {
+        "welcome": {
+          "title": "Xush kelibsiz!",
+          "text": "Bu sizning shaxsiy kabinetingiz. Pastda to‘rtta bo‘lim — bir tegib almashtiring. Endi har bir qadamni misolda ko‘rsatamiz.",
+          "f0": "Pastda doim to‘rtta bo‘lim. Birinchisi — «Bosh sahifa»",
+          "f1": "«To‘lovlar»ni bosing — barcha to‘lovlar tarixi shu yerda",
+          "f2": "«Shartnoma» — ijara shartlaringiz",
+          "f3": "«Profil» — ma’lumotlar va sozlamalar",
+          "f4": "Tayyor! Bo‘limlarni bir tegib almashtiring"
+        },
+        "home": {
+          "title": "Bosh sahifa: nima va qachon to‘lanadi",
+          "text": "Bosh sahifada eng yaqin to‘lov summasi va muddati darhol ko‘rinadi. Kechikish bo‘lsa, qizil belgi chiqadi.",
+          "f0": "Bu yerda — eng yaqin to‘lov summasi va muddati",
+          "f1": "«To‘lash» tugmasi — summa ostida",
+          "f2": "Pastda — jadvaldagi keyingi to‘lovlar"
+        },
+        "pay": {
+          "title": "Ijara uchun qanday to‘lash",
+          "text": "Pulni uy egasining rekvizitlariga o‘tkazing, chek skrinshotini biriktirib yuboring. Uy egasi tekshirib, to‘lovni tasdiqlaydi.",
+          "f0": "1. «To‘lash»ni bosing",
+          "f1": "2. Rekvizitlarga o‘tkazing — raqam bosilganda nusxalanadi",
+          "f2": "3. Bosing va chek skrinshoti yoki suratini biriktiring",
+          "f3": "4. «Chekni yuborish»ni bosing",
+          "f4": "Tayyor! Chek tekshiruvda — uy egasi tasdiqlaganda holat yangilanadi"
+        },
+        "payments": {
+          "title": "To‘lovlar va holatlar",
+          "text": "Barcha to‘lovlar bitta ro‘yxatda. Rangli belgilar nima to‘langani, nima tekshiruvda va nima hali to‘lanishi kerakligini ko‘rsatadi.",
+          "f0": "«To‘lovlar» bo‘limini oching",
+          "f1": "Qizil belgi — to‘lash kerak, to‘lovni bosing",
+          "f2": "Ko‘k — chek yuborilgan va tekshiruvni kutmoqda",
+          "f3": "Yashil — to‘lov tasdiqlangan"
+        },
+        "contract": {
+          "title": "Sizning shartnomangiz",
+          "text": "Ijara summasi, muddat, to‘lov kuni, shartlar va mulk ro‘yxati — uy egasiga qo‘ng‘iroq qilmasdan ham doim qo‘l ostida.",
+          "f0": "«Shartnoma» bo‘limini oching",
+          "f1": "Ijara summasi va necha kun qolgani",
+          "f2": "Shartnoma shartlari va mulk ro‘yxati",
+          "f3": "Ko‘chib kirishdagi kvartira suratlari"
+        },
+        "support": {
+          "title": "Yordam",
+          "text": "Tushunarsiz narsa bormi? Kabinetdan to‘g‘ridan-to‘g‘ri yozing — javob shu yerga keladi.",
+          "f0": "Tepadagi quloqchin belgisini bosing",
+          "f1": "Pastdagi maydonga savolingizni yozing",
+          "f2": "Yuborish tugmasini bosing",
+          "f3": "Javob shu yerda paydo bo‘ladi — xabarnoma ham keladi"
+        },
+        "profile": {
+          "title": "Profil va sozlamalar",
+          "text": "To‘lov eslatmalarini olish uchun Telegramni ulang. Shu yerda mavzu va til ham bor. Qo‘llanmani profildan qayta ochish mumkin.",
+          "f0": "«Profil» bo‘limini oching",
+          "f1": "Telegramni ulang — eslatmalar shu yerga keladi",
+          "f2": "Yorug‘ yoki qorong‘i mavzuni tanlang",
+          "f3": "Tilni tanlang: rus yoki o‘zbek"
+        }
+      }
+    },
+    "landlord": {
+      "steps": {
+        "welcome": {
+          "title": "Xush kelibsiz!",
+          "text": "Ijarani qanday yuritishni bir daqiqada ko‘rsatamiz: kvartira qo‘shishdan to‘lovni tasdiqlashgacha. Barcha qadamlar jonli misollarda.",
+          "f0": "Pastda — asosiy bo‘limlar. Birinchisi — natijalar bilan «Bosh sahifa»",
+          "f1": "«Obyektlar» — kvartira va uylaringiz",
+          "f2": "«To‘lovlar» — kim to‘ladi, kim yo‘q",
+          "f3": "«Ijarachilar» — sizning ijarachilaringiz",
+          "f4": "Markazdagi «+» tugmasi — shartnomani tez yaratish"
+        },
+        "properties": {
+          "title": "1-qadam. Obyekt qo‘shing",
+          "text": "Obyekt — siz ijaraga beradigan kvartira yoki uy. Keyin unga ijarachilar, shartnomalar va to‘lovlar bog‘lanadi.",
+          "f0": "«Obyektlar» bo‘limini oching",
+          "f1": "«Obyekt qo‘shish»ni bosing",
+          "f2": "Nom va manzilni kiriting, «Saqlash»ni bosing",
+          "f3": "Obyekt ro‘yxatda paydo bo‘ldi"
+        },
+        "tenants": {
+          "title": "2-qadam. Ijarachi qo‘shing",
+          "text": "Ijarachining ismi va telefonini kiriting va taklif yuboring — u o‘z kabinetini va to‘lov eslatmalarini oladi.",
+          "f0": "«Ijarachilar» bo‘limini oching",
+          "f1": "«Ijarachi qo‘shish»ni bosing",
+          "f2": "Ism va telefonni kiriting, «Saqlash»ni bosing",
+          "f3": "Ijarachi yonidagi «Taklif qilish»ni bosing",
+          "f4": "Havola nusxalandi — uni ijarachiga messenjerda yuboring"
+        },
+        "lease": {
+          "title": "3-qadam. Shartnoma tuzing",
+          "text": "Obyekt va ijarachini tanlang, summa va to‘lov kunini kiriting — butun muddat uchun to‘lovlar jadvali o‘zi tuziladi.",
+          "f0": "Pastki menyu markazidagi «+»ni bosing",
+          "f1": "«Yangi shartnoma»ni tanlang",
+          "f2": "Obyekt va ijarachini tanlang, summa va to‘lov kunini kiriting",
+          "f3": "«Yaratish»ni bosing",
+          "f4": "Tayyor! To‘lovlar jadvali avtomatik tuzildi"
+        },
+        "payments": {
+          "title": "To‘lovlar",
+          "text": "Butun jadval bir joyda. Ijarachi naqd pul bergan bo‘lsa, to‘lovni qo‘lda to‘langan deb belgilang.",
+          "f0": "«To‘lovlar» bo‘limini oching",
+          "f1": "Pul olgan bo‘lsangiz, «To‘lovni belgilash»ni bosing",
+          "f2": "To‘lov to‘langan — ijarachi yangi holatni darhol ko‘radi"
+        },
+        "receipts": {
+          "title": "Ijarachilardan cheklar",
+          "text": "Ijarachi o‘tkazma bilan to‘lasa, chek yuboradi. Tekshiring va tasdiqlang — yoki sabab ko‘rsatib rad eting.",
+          "f0": "Ijarachi chek yubordi — oching va tekshiring",
+          "f1": "Pul tushgan bo‘lsa, «Tasdiqlash»ni bosing",
+          "f2": "To‘lov to‘langan, ijarachi xabarnoma oldi"
+        },
+        "support": {
+          "title": "Yordam",
+          "text": "Savollar qoldimi? Ilovadan to‘g‘ridan-to‘g‘ri yozing — biz aloqadamiz.",
+          "f0": "Tepadagi quloqchin belgisini bosing",
+          "f1": "Pastdagi maydonga savolingizni yozing",
+          "f2": "Yuborish tugmasini bosing",
+          "f3": "Javob shu yerga va xabarnoma bilan keladi"
+        }
+      }
+    },
+    "label": "Qo‘llanma",
+    "mock": {
+      "hello": "Salom, Alisher",
+      "due": "To‘lash kerak",
+      "dueNote": "5-dekabrgacha to‘lang",
+      "sum": "so‘m",
+      "pay": "To‘lash",
+      "onReview": "Chek tekshiruvda",
+      "next": "Keyingi to‘lovlar",
+      "month0": "Oktabr",
+      "month00": "Sentabr",
+      "month1": "Noyabr",
+      "month2": "Dekabr",
+      "soon": "Tez orada",
+      "payTitle": "Dekabr uchun to‘lov",
+      "requisites": "To‘lov rekvizitlari",
+      "copied": "Raqam nusxalandi",
+      "fileName": "chek.jpg",
+      "attach": "Chekni biriktirish",
+      "send": "Chekni yuborish",
+      "paid": "To‘langan",
+      "rentLabel": "Oyiga ijara",
+      "daysLeft": "87 kun qoldi",
+      "conditions": "Shartlar va ro‘yxat",
+      "photos": "Kvartira suratlari",
+      "contacts": "Kontaktlar",
+      "password": "Parol",
+      "connect": "Ulash",
+      "theme": "Mavzu",
+      "light": "Yorug‘",
+      "dark": "Qorong‘i",
+      "system": "Tizim bo‘yicha",
+      "language": "Til",
+      "home": "Bosh sahifa",
+      "payments": "To‘lovlar",
+      "contract": "Shartnoma",
+      "profile": "Profil",
+      "properties": "Obyektlar",
+      "tenants": "Ijarachilar",
+      "income": "Daromad",
+      "support": "Yordam",
+      "chatHello": "Assalomu alaykum! Qanday yordam bera olamiz?",
+      "chatMsg": "Shartnomani qanday uzaytiraman?",
+      "chatAnswer": "Uy egasiga yozing — biz yo‘l-yo‘riq beramiz.",
+      "write": "Xabar…",
+      "newLease": "Yangi shartnoma",
+      "empty": "Hozircha hech narsa yo‘q",
+      "addProperty": "Obyekt qo‘shish",
+      "addTenant": "Ijarachi qo‘shish",
+      "propName": "Nomi",
+      "propAddr": "Manzil",
+      "propNameVal": "Navoiy ko‘chasidagi kvartira",
+      "address": "Navoiy ko‘chasi, 12, 4-xonadon",
+      "tenantName": "Ism",
+      "tenantPhone": "Telefon",
+      "person": "Alisher K.",
+      "save": "Saqlash",
+      "invite": "Taklif qilish",
+      "invited": "Taklif qilindi",
+      "linkCopied": "Taklif havolasi nusxalandi",
+      "create": "Yaratish",
+      "property": "Obyekt",
+      "tenant": "Ijarachi",
+      "amount": "Summa, so‘m",
+      "payDay": "To‘lov kuni",
+      "scheduleDone": "To‘lovlar jadvali tuzildi",
+      "markPaid": "To‘lovni belgilash",
+      "receipts": "Cheklar",
+      "confirm": "Tasdiqlash",
+      "reject": "Rad etish",
+      "confirmed": "Tasdiqlandi",
+      "notified": "Ijarachiga xabar yuborildi",
+      "free": "Bo‘sh",
+      "rented": "Ijarada",
+      "active": "Faol"
+    },
+    "pause": "Pauza",
+    "play": "Davom etish",
+    "replay": "Animatsiyani takrorlash",
+    "soundOn": "Tovushni yoqish",
+    "soundOff": "Tovushni o‘chirish",
+    "showOnScreen": "Haqiqiy ekranda ko‘rsatish",
+    "coachDone": "Tushunarli",
+    "coach": {
+      "properties": {
+        "title": "Obyektlar",
+        "text": "Bu yerda kvartira va uylaringiz. Birinchi obyektni qo‘shishdan boshlang."
+      },
+      "tenants": {
+        "title": "Ijarachilar",
+        "text": "Ijarachilar va ularning shaxsiy kabinetiga takliflar."
+      },
+      "payments": {
+        "title": "To‘lovlar",
+        "text": "To‘lovlar jadvali: kim to‘ladi, kim kechikdi va to‘lovni qo‘lda belgilash."
+      },
+      "add": {
+        "title": "Tez yaratish",
+        "text": "Yangi shartnoma shu yerdan rasmiylashtiriladi — obyekt, ijarachi, summa va to‘lov kunini tanlang."
+      },
+      "support": {
+        "title": "Yordam",
+        "text": "Yordam kerakmi? Shu bo‘limdan bizga yozing."
+      },
+      "pay": {
+        "title": "To‘lov",
+        "text": "Shu yerni bosing, pulni rekvizitlarga o‘tkazing va chekni yuboring."
+      },
+      "tabPayments": {
+        "title": "To‘lovlar",
+        "text": "To‘lovlar tarixi va cheklar holati."
+      },
+      "tabContract": {
+        "title": "Shartnoma",
+        "text": "Ijara shartlari, ro‘yxat va kvartira suratlari."
+      },
+      "tabProfile": {
+        "title": "Profil",
+        "text": "Ma’lumotlar, eslatmalar uchun Telegram, mavzu va til. Qo‘llanmani shu yerdan qayta ochish mumkin."
+      }
+    }
   }
 }
