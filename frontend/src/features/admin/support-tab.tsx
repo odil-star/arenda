@@ -253,7 +253,7 @@ function ThreadChat({ id, onBack }: { id: number; onBack: () => void }) {
       quickReplies={thread.data?.status === "closed" ? undefined : quickReplies}
       peerAvatar={thread.data ? <Avatar name={displayName(thread.data)} size="sm" /> : undefined}
       className="min-h-0 min-w-0 flex-1 rounded-none border-0"
-      composerClassName="pb-[calc(5.75rem+env(safe-area-inset-bottom))] lg:pb-2.5"
+      composerClassName="pb-[max(0.625rem,env(safe-area-inset-bottom))]"
       header={thread.data ? <ThreadHeader thread={thread.data} onBack={onBack} /> : <div className="h-14 shrink-0 border-b border-border bg-card" />}
       notice={() =>
         thread.data?.status === "closed" ? (

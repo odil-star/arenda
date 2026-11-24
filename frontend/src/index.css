@@ -322,6 +322,34 @@
     transform: scale(1);
   }
 }
+@keyframes tap {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+@keyframes ring-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 50%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+@utility animate-tap {
+  animation: tap 600ms ease-out both;
+}
+@utility animate-ring {
+  animation: ring-pulse 1.2s ease-in-out infinite;
+}
 @utility animate-fade-in {
   animation: fade-in 150ms ease-out;
 }

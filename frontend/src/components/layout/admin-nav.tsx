@@ -1,8 +1,10 @@
-import { Ellipsis } from "lucide-react";
+import { Ellipsis, LogOut } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useAuth } from "@/features/auth/auth-context";
 import { useAdminSupportUnread, useMyPresence } from "@/api/support";
 import { cn } from "@/lib/utils";
 import { ADMIN_PRIMARY_AREAS, adminTabHref, type AdminAreaView } from "./nav-items";
@@ -93,6 +95,7 @@ export function AdminBottomNav() {
   const { t } = useTranslation();
   const { areas, area: current, onAdmin } = useAdminNav();
   const badge = useBadges();
+  const { signOut } = useAuth();
   const [moreOpen, setMoreOpen] = useState(false);
   const primary = areas.filter((a) => ADMIN_PRIMARY_AREAS.includes(a.id));
   const rest = areas.filter((a) => !ADMIN_PRIMARY_AREAS.includes(a.id));
@@ -171,6 +174,9 @@ export function AdminBottomNav() {
                 );
               })}
             </ul>
+            <Button variant="secondary" className="mt-3 w-full text-danger" onClick={signOut}>
+              <LogOut aria-hidden /> {t("auth.logout")}
+            </Button>
           </DialogContent>
         )}
       </Dialog>

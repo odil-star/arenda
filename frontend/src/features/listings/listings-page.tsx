@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Select, type SelectOption } from "@/components/ui/select";
-import { Pagination } from "@/components/common/pagination";
 import { EmptyState, ErrorState } from "@/components/common/states";
 import { useListings, type ListingParams } from "@/api/listings";
 import { PROPERTY_KINDS, type PropertyKind } from "@/api/types";
@@ -35,7 +34,10 @@ export function ListingsPage() {
   const kind = (params.get("kind") as KindFilter | null) ?? "all";
   const rooms = (params.get("rooms") as RoomsFilter | null) ?? "all";
   const sort = (params.get("sort") as Sort | null) ?? "new";
-  const page = Number(params.get("page") ?? 1) || 1;
+  // «Показать ещё»: увеличиваем размер выдачи, сбрасываем при смене фильтров
+  const [shown, setShown] = useState(PAGE_SIZE);
+  const filterKey = ["q", "kind", "rooms", "owner", "price_max", "sort"].map((k) => params.get(k) ?? "").join("|");
+  useEffect(() => setShown(PAGE_SIZE), [filterKey]);
   const [search, setSearch] = useState(params.get("q") ?? "");
   const [priceMax, setPriceMax] = useState(params.get("price_max") ?? "");
 
@@ -62,8 +64,8 @@ export function ListingsPage() {
   }, [search, priceMax]);
 
   const query: ListingParams = {
-    page,
-    page_size: PAGE_SIZE,
+    page: 1,
+    page_size: shown,
     search: params.get("q") ?? undefined,
     kind: kind === "all" ? undefined : kind,
     rooms: rooms === "all" ? undefined : Number(rooms),
@@ -248,9 +250,13 @@ export function ListingsPage() {
               <ListingCard key={l.id} listing={l} index={i} />
             ))}
           </div>
-          <div className="mt-8">
-            <Pagination page={page} pageSize={PAGE_SIZE} count={data.count} onPageChange={(p) => update({ page: String(p) })} />
-          </div>
+          {data.results.length < data.count && shown < 100 && (
+            <div className="mt-8 flex justify-center">
+              <Button variant="secondary" onClick={() => setShown((n) => Math.min(n + PAGE_SIZE, 100))} disabled={listings.isFetching}>
+                {t("listing.showMore")}
+              </Button>
+            </div>
+          )}
         </>
       ) : (
         <EmptyState

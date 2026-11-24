@@ -1,6 +1,6 @@
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown } from "lucide-react";
-import { forwardRef } from "react";
+import { forwardRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export interface SelectOption<V extends string = string> {
@@ -25,8 +25,27 @@ function SelectInner<V extends string>(
   { id, value, onValueChange, options, placeholder, className, onBlur, ...aria }: SelectProps<V>,
   ref: React.ForwardedRef<HTMLButtonElement>,
 ) {
+  const [open, setOpen] = useState(false);
+
+  // Тап вне меню: Radix закрывает его на pointerdown, и следующий click
+  // попадает на кнопку под пальцем — меню открывается снова.
+  // Поэтому закрываем только после click и гасим его.
+  const handlePointerDownOutside = (e: Event) => {
+    e.preventDefault();
+    const swallow = (ev: Event) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      setOpen(false);
+    };
+    window.addEventListener("click", swallow, { capture: true, once: true });
+    window.setTimeout(() => {
+      window.removeEventListener("click", swallow, { capture: true });
+      setOpen(false);
+    }, 600);
+  };
+
   return (
-    <SelectPrimitive.Root value={value || undefined} onValueChange={(v) => onValueChange(v as V)}>
+    <SelectPrimitive.Root open={open} onOpenChange={setOpen} value={value || undefined} onValueChange={(v) => onValueChange(v as V)}>
       <SelectPrimitive.Trigger
         ref={ref}
         id={id}
@@ -48,6 +67,7 @@ function SelectInner<V extends string>(
           position="popper"
           sideOffset={4}
           collisionPadding={12}
+          onPointerDownOutside={handlePointerDownOutside}
           className="z-[60] max-h-[min(var(--radix-select-content-available-height),22rem)] min-w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg animate-fade-in"
         >
           <SelectPrimitive.Viewport className="max-h-[inherit] overflow-y-auto overscroll-contain">
