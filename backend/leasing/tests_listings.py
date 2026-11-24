@@ -115,3 +115,93 @@ class ListingTests(OwnerTestCase):
         self.assertTrue(data["owner_since"])
         self.assertEqual(self.client.get(f"/api/listings/?owner={self.user_a.pk}").json()["count"], 1)
         self.assertEqual(self.client.get(f"/api/listings/?owner={self.user_b.pk}").json()["count"], 0)
+
+
+class ListingFilterTests(OwnerTestCase):
+    def setUp(self):
+        super().setUp()
+        self.user_a.phone = "+998901112233"
+        self.user_a.save()
+        self.cheap = self.make_property(name="Дешёвая", is_listed=True, listing_price=2_000_000, rooms=1, area_m2=30,
+                                        renovation="cosmetic", furniture="none", amenities=["wifi"])
+        self.rich = self.make_property(name="Дорогая", is_listed=True, listing_price=8_000_000, rooms=3, area_m2=90,
+                                       renovation="euro", furniture="full", amenities=["wifi", "ac", "tv"],
+                                       latitude="41.311100", longitude="69.279700")
+        self.client.force_authenticate(None)
+
+    def titles(self, query):
+        return sorted(x["title"] for x in self.client.get(f"/api/listings/?{query}").json()["results"])
+
+    def test_new_filters(self):
+        self.assertEqual(self.titles("price_min=5000000"), ["Дорогая"])
+        self.assertEqual(self.titles("area_max=50"), ["Дешёвая"])
+        self.assertEqual(self.titles("area_min=50"), ["Дорогая"])
+        self.assertEqual(self.titles("renovation=euro"), ["Дорогая"])
+        self.assertEqual(self.titles("furniture=none"), ["Дешёвая"])
+        self.assertEqual(self.titles("amenities=wifi,ac"), ["Дорогая"])
+        self.assertEqual(self.titles("amenities=wifi"), ["Дешёвая", "Дорогая"])
+        self.assertEqual(self.titles("search=дорог"), ["Дорогая"])
+        self.assertEqual(self.titles("new_days=7"), ["Дешёвая", "Дорогая"])
+
+    def test_has_photo_and_junk_values_are_ignored(self):
+        self.assertEqual(self.titles("has_photo=1"), [])
+        self.assertEqual(self.titles("price_max=abc&area_min=x&amenities=hack&kind=zzz"), ["Дешёвая", "Дорогая"])
+
+    def test_coordinates_exposed_and_validated(self):
+        item = next(x for x in self.client.get("/api/listings/").json()["results"] if x["title"] == "Дорогая")
+        self.assertEqual(item["latitude"], "41.311100")
+        self.client.force_authenticate(self.user_a)
+        r = self.client.patch(f"/api/properties/{self.cheap.pk}/", {"latitude": "41.3"}, format="json")
+        self.assertEqual(r.status_code, 400)
+        r = self.client.patch(f"/api/properties/{self.cheap.pk}/", {"latitude": "95", "longitude": "10"}, format="json")
+        self.assertEqual(r.status_code, 400)
+
+    def test_stats(self):
+        body = self.client.get("/api/listings/stats/").json()
+        self.assertEqual(body, {"count": 2, "owners": 1, "min_price": 2_000_000, "new_week": 2})
+
+
+class SavedSearchTests(OwnerTestCase):
+    def setUp(self):
+        super().setUp()
+        self.user_a.phone = "+998901112233"
+        self.user_a.save()
+        self.make_property(name="Старая", is_listed=True, listing_price=3_000_000, rooms=2)
+        self.client.force_authenticate(None)
+
+    def create(self, filters):
+        r = self.client.post("/api/listings/saved-searches/", {"filters": filters, "language": "ru"}, format="json")
+        self.assertEqual(r.status_code, 201)
+        return r.json()
+
+    def test_link_notify_only_new_and_unlink(self):
+        from unittest import mock
+
+        from reminders import bot_logic
+        from .models import SavedSearch
+        from .tasks import notify_saved_searches
+
+        body = self.create({"rooms": 2, "evil": "x"})
+        self.assertEqual(body["start_command"], f"/start s_{body['token']}")
+        search = SavedSearch.objects.get(token=body["token"])
+        self.assertEqual(search.filters, {"rooms": "2"})
+        self.assertIn("Готово", bot_logic.link(f"s_{body['token']}", 555))
+        search.refresh_from_db()
+        self.assertEqual(search.chat_id, 555)
+
+        sender = mock.Mock()
+        with mock.patch("reminders.channels.get_sender", return_value=sender):
+            self.assertEqual(notify_saved_searches(), 0)  # старое объявление уже «виденное»
+            self.make_property(name="Новая", is_listed=True, listing_price=3_500_000, rooms=2)
+            self.make_property(name="Не по фильтру", is_listed=True, listing_price=3_500_000, rooms=5)
+            self.assertEqual(notify_saved_searches(), 1)
+            self.assertIn("Новая", sender.send.call_args.args[1])
+            self.assertEqual(notify_saved_searches(), 0)  # повторно не шлём
+
+        bot_logic.unlink(555)
+        search.refresh_from_db()
+        self.assertFalse(search.is_active)
+
+    def test_unknown_token(self):
+        from reminders import bot_logic
+        self.assertIn("не найден", bot_logic.link("s_deadbeef", 1))

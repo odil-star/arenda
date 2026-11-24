@@ -109,6 +109,9 @@ export interface Property {
   renovation: Renovation | "";
   furniture: Furniture | "";
   amenities: Amenity[];
+  /** точка на карте (строки с 6 знаками) */
+  latitude: string | null;
+  longitude: string | null;
   created_at: ISODateTime;
   updated_at: ISODateTime;
 }
@@ -116,7 +119,7 @@ export type PropertyInput = Pick<
   Property,
   "name" | "address" | "kind" | "area_m2" | "is_under_repair" | "notes" | "is_listed" | "listing_price" | "listing_description" | "rooms" | "contact_phone" | "has_telegram"
 > &
-  Partial<Pick<Property, "floor" | "floors_total" | "renovation" | "furniture" | "amenities">>;
+  Partial<Pick<Property, "floor" | "floors_total" | "renovation" | "furniture" | "amenities" | "latitude" | "longitude">>;
 
 export interface PropertyListParams {
   page?: number;

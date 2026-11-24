@@ -367,3 +367,36 @@
   stroke-dashoffset: 48;
   animation: draw 420ms 180ms ease-out forwards;
 }
+
+/* ---------- Карта (Leaflet): метки с ценой и всплывающая карточка ---------- */
+.map-pin {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  white-space: nowrap;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font: 600 12px/1.2 var(--font-sans, system-ui);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.3);
+  border: 2px solid #fff;
+}
+.map-dot {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: var(--primary);
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.4);
+}
+.map-popup {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  line-height: 1.4;
+}
+.map-popup:hover strong {
+  text-decoration: underline;
+}

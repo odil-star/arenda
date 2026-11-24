@@ -1,9 +1,9 @@
 import {
   AirVent, ArrowRight, ArrowUpRight, BedDouble, Building2, CookingPot, DoorOpen, Flame, House, ImageOff, KeyRound, Layers,
-  Maximize2, MapPin, Microwave, Paintbrush, ParkingSquare, Refrigerator, Sofa, Sparkles, Tv, WashingMachine, Wifi, type LucideIcon,
+  Maximize2, MapPin, ChevronLeft, ChevronRight, Images, Microwave, Paintbrush, ParkingSquare, Refrigerator, Sofa, Sparkles, Tv, WashingMachine, Wifi, type LucideIcon,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useLayoutEffect, type ReactNode } from "react";
+import { useLayoutEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -207,36 +207,76 @@ export function ListingPhoto({ src, alt, className }: { src?: string; alt: strin
 }
 
 const NEW_DAYS = 3;
+export type CardVariant = "grid" | "list";
 
-export function ListingCard({ listing, index = 0 }: { listing: Listing; index?: number }) {
+/** Фото карточки: если их несколько — стрелки и точки (листаются, не открывая объявление). */
+function CardGallery({ listing, className }: { listing: Listing; className?: string }) {
+  const { t } = useTranslation();
+  const [idx, setIdx] = useState(0);
+  const total = listing.photos.length;
+  const go = (delta: number) => setIdx((i) => (i + delta + total) % total);
+  const arrow =
+    "absolute top-1/2 z-20 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-background group-hover:flex group-focus-within:flex max-sm:flex";
+  return (
+    <div className={cn("relative overflow-hidden", className)}>
+      <ListingPhoto
+        src={listing.photos[idx]}
+        alt={listing.title}
+        className="size-full min-h-full transition duration-500 group-hover:scale-[1.04]"
+      />
+      {total > 1 && (
+        <>
+          <button type="button" aria-label={t("listing.prevPhoto")} onClick={() => go(-1)} className={cn(arrow, "left-2")}>
+            <ChevronLeft className="size-4" aria-hidden />
+          </button>
+          <button type="button" aria-label={t("listing.nextPhoto")} onClick={() => go(1)} className={cn(arrow, "right-2")}>
+            <ChevronRight className="size-4" aria-hidden />
+          </button>
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center gap-1">
+            {listing.photos.slice(0, 7).map((_, i) => (
+              <span key={i} className={cn("size-1.5 rounded-full bg-white/60 shadow", i === idx && "bg-white")} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function ListingCard({ listing, index = 0, variant = "grid" }: { listing: Listing; index?: number; variant?: CardVariant }) {
   const { t } = useTranslation();
   const fmt = useFormat();
   const isNew = Date.now() - new Date(listing.updated_at).getTime() < NEW_DAYS * 86_400_000;
+  const isList = variant === "list";
   return (
-    <Link
-      to={`/listings/${listing.id}`}
+    <article
       style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
-      className="group flex animate-rise-in flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition duration-300 [animation-fill-mode:backwards] hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl hover:shadow-black/5 focus-visible:outline-2 focus-visible:outline-ring dark:hover:shadow-black/40"
+      className={cn(
+        "group relative flex animate-rise-in overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition duration-300 [animation-fill-mode:backwards] hover:border-primary/40 hover:shadow-xl hover:shadow-black/5 focus-within:outline-2 focus-within:outline-ring dark:hover:shadow-black/40",
+        isList ? "flex-col sm:flex-row" : "flex-col hover:-translate-y-1",
+      )}
     >
-      <div className="relative overflow-hidden">
-        <ListingPhoto
-          src={listing.photos[0]}
-          alt={listing.title}
-          className="aspect-[4/3] w-full transition duration-500 group-hover:scale-[1.04]"
-        />
+      {/* вся карточка — одна ссылка; стрелки галереи лежат выше неё */}
+      <Link to={`/listings/${listing.id}`} className="absolute inset-0 z-10 focus-visible:outline-none" aria-label={listing.title} />
+      <div className={cn("relative", isList ? "sm:w-72 sm:shrink-0 lg:w-80" : "")}>
+        <CardGallery listing={listing} className={isList ? "aspect-[4/3] w-full sm:aspect-auto sm:h-full" : "aspect-[4/3] w-full"} />
         <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/35 to-transparent" />
-        <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
-          <div className="flex flex-wrap gap-1.5">
-            <span className="rounded-full bg-background/90 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm backdrop-blur">
-              {t(`properties.kind.${listing.kind}`)}
+        <div className="pointer-events-none absolute inset-x-3 top-3 flex flex-wrap gap-1.5">
+          <span className="rounded-full bg-background/90 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm backdrop-blur">
+            {t(`properties.kind.${listing.kind}`)}
+          </span>
+          {isNew && (
+            <span className="flex items-center gap-1 rounded-full bg-[linear-gradient(135deg,#8b5cf6,#d946ef_55%,#ec4899)] px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
+              <Sparkles className="size-3" aria-hidden />
+              {t("listing.isNew")}
             </span>
-            {isNew && (
-              <span className="flex items-center gap-1 rounded-full bg-[linear-gradient(135deg,#8b5cf6,#d946ef_55%,#ec4899)] px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
-                <Sparkles className="size-3" aria-hidden />
-                {t("listing.isNew")}
-              </span>
-            )}
-          </div>
+          )}
+          {listing.photos.length > 1 && (
+            <span className="flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-xs font-medium text-white backdrop-blur">
+              <Images className="size-3" aria-hidden />
+              {listing.photos.length}
+            </span>
+          )}
         </div>
       </div>
       <div className="flex flex-1 flex-col p-4">
@@ -246,11 +286,14 @@ export function ListingCard({ listing, index = 0 }: { listing: Listing; index?: 
         </p>
         <p className="mt-1 line-clamp-1 font-medium transition-colors group-hover:text-primary">{listing.title}</p>
         <p className="text-xs text-muted-foreground tabular">{t("listing.id", { id: listing.id })}</p>
-        <p className="mb-3.5 mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+        <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
           <MapPin className="size-3.5 shrink-0" aria-hidden />
           <span className="line-clamp-1">{listing.address}</span>
         </p>
-        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border/70 pt-3">
+        {isList && listing.description && (
+          <p className="mt-2 line-clamp-2 text-sm text-muted-foreground max-sm:hidden">{listing.description}</p>
+        )}
+        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border/70 pt-3 [&:not(:first-child)]:mt-3.5">
           <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             {listing.rooms != null && (
               <li className="flex items-center gap-1">
@@ -264,6 +307,13 @@ export function ListingCard({ listing, index = 0 }: { listing: Listing; index?: 
                 {t("properties.areaValue", { value: fmt.number(listing.area_m2) })}
               </li>
             )}
+            {listing.floor != null && (
+              <li>
+                {listing.floors_total != null
+                  ? t("listing.floorOf", { floor: listing.floor, total: listing.floors_total })
+                  : t("listing.floorOnly", { floor: listing.floor })}
+              </li>
+            )}
           </ul>
           <ArrowUpRight
             className="size-4 shrink-0 text-muted-foreground transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary"
@@ -271,7 +321,7 @@ export function ListingCard({ listing, index = 0 }: { listing: Listing; index?: 
           />
         </div>
       </div>
-    </Link>
+    </article>
   );
 }
 

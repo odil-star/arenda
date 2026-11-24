@@ -18,6 +18,7 @@ import { applyServerErrors, errorKind, serverMessages } from "@/api/errors";
 import { api } from "@/api/client";
 import { propertiesApi, useMe } from "@/api/hooks";
 import { AMENITIES, FURNITURE, PROPERTY_KINDS, RENOVATIONS, type Amenity, type Property, type PropertyInput } from "@/api/types";
+import { LocationPicker } from "@/components/common/maps";
 import { Lightbox } from "@/components/common/lightbox";
 import { PropertyPhotos } from "@/features/properties/property-photos";
 import { useKindOptions } from "@/features/properties/use-kind-options";
@@ -39,9 +40,11 @@ const schema = z.object({
   listing_price: integerString({ positive: true }),
   listing_description: optionalText(3000),
   is_listed: z.boolean(),
+  latitude: z.string(),
+  longitude: z.string(),
 });
 type Values = z.input<typeof schema>;
-const FIELDS = ["name", "address", "kind", "area_m2", "rooms", "floor", "floors_total", "renovation", "furniture", "amenities", "contact_phone", "has_telegram", "listing_price", "listing_description", "is_listed"] as const;
+const FIELDS = ["name", "address", "kind", "area_m2", "rooms", "floor", "floors_total", "renovation", "furniture", "amenities", "contact_phone", "has_telegram", "listing_price", "listing_description", "is_listed", "latitude", "longitude"] as const;
 
 const PHOTO_MAX = 5 * 1024 * 1024;
 const MAX_NEW_PHOTOS = 20;
@@ -63,6 +66,8 @@ function toValues(p?: Property, accountPhone = ""): Values {
     listing_price: p?.listing_price != null ? String(p.listing_price) : "",
     listing_description: p?.listing_description ?? "",
     is_listed: p?.is_listed ?? true,
+    latitude: p?.latitude ?? "",
+    longitude: p?.longitude ?? "",
   };
 }
 
@@ -159,6 +164,45 @@ async function uploadPhotos(propertyId: number, files: File[]): Promise<number> 
   return failed;
 }
 
+/** Точка на карте: по ней объявление попадает на карту в поиске. */
+function LocationCard({ form }: { form: ReturnType<typeof useForm<Values>> }) {
+  const { t } = useTranslation();
+  const lat = form.watch("latitude");
+  const lng = form.watch("longitude");
+  const point: [number, number] | null = lat && lng && Number.isFinite(+lat) && Number.isFinite(+lng) ? [+lat, +lng] : null;
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardTitle>{t("listing.mapPoint.title")}</CardTitle>
+        {point && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              form.setValue("latitude", "", { shouldDirty: true });
+              form.setValue("longitude", "", { shouldDirty: true });
+            }}
+          >
+            {t("listing.mapPoint.clear")}
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <LocationPicker
+          value={point}
+          onChange={([a, b]) => {
+            form.setValue("latitude", a.toFixed(6), { shouldDirty: true });
+            form.setValue("longitude", b.toFixed(6), { shouldDirty: true });
+          }}
+          className="z-0 h-64 w-full overflow-hidden rounded-lg border border-border"
+        />
+        <p className="text-xs text-muted-foreground">{t(point ? "listing.mapPoint.set" : "listing.mapPoint.hint")}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 /** Отдельная страница объявления: создание (/ads/new) и правка (/ads/:id). */
 export function AdFormPage() {
   const { t } = useTranslation();
@@ -220,6 +264,8 @@ export function AdFormPage() {
       has_telegram: values.has_telegram,
       listing_price: values.listing_price ? Number(values.listing_price) : null,
       listing_description: values.listing_description,
+      latitude: values.latitude && values.longitude ? values.latitude : null,
+      longitude: values.latitude && values.longitude ? values.longitude : null,
     };
     try {
       const saved = isEdit ? await update.mutateAsync({ id, input }) : await create.mutateAsync(input);
@@ -383,6 +429,7 @@ export function AdFormPage() {
         </Card>
 
         <div className="space-y-4">
+          <LocationCard form={form} />
           {isEdit && id !== undefined ? <PropertyPhotos propertyId={id} isListed={listed} /> : <PendingPhotos files={photos} onChange={setPhotos} />}
         </div>
       </div>

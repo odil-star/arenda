@@ -180,6 +180,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "core.tasks.check_problem_payments",
         "schedule": crontab(minute=5),  # каждый час
     },
+    "notify-saved-searches": {
+        "task": "leasing.tasks.notify_saved_searches",
+        "schedule": crontab(minute="*/30"),
+    },
     "prune-webhook-logs": {
         "task": "core.tasks.prune_webhook_logs",
         "schedule": crontab(hour=3, minute=30),
@@ -190,6 +194,7 @@ ADMIN_ALERT_PROBLEM_THRESHOLD = env.int("ADMIN_ALERT_PROBLEM_THRESHOLD", default
 
 # Напоминания / Telegram
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
+TELEGRAM_BOT_USERNAME = env("TELEGRAM_BOT_USERNAME", default="").lstrip("@")  # для ссылки «Сообщить о новых»
 TELEGRAM_SENDER = "reminders.channels.TelegramSender"
 REMINDER_DAYS_BEFORE = 3
 REMINDER_OVERDUE_EVERY_DAYS = 3

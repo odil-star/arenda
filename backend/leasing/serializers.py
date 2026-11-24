@@ -20,10 +20,12 @@ class PropertySerializer(serializers.ModelSerializer):
         model = Property
         fields = ("id", "name", "address", "kind", "area_m2", "is_under_repair", "notes",
                   "is_listed", "listing_price", "listing_description", "rooms", "contact_phone", "has_telegram",
-                  "floor", "floors_total", "renovation", "furniture", "amenities",
+                  "floor", "floors_total", "renovation", "furniture", "amenities", "latitude", "longitude",
                   "created_at", "updated_at")
         read_only_fields = ("id", "created_at", "updated_at")
         extra_kwargs = {
+            "latitude": {"min_value": Decimal("-90"), "max_value": Decimal("90")},
+            "longitude": {"min_value": Decimal("-180"), "max_value": Decimal("180")},
             "listing_price": {"min_value": 1},
             "rooms": {"min_value": 1, "max_value": 50},
             "floor": {"min_value": 0, "max_value": 200},
@@ -54,6 +56,10 @@ class PropertySerializer(serializers.ModelSerializer):
         owner = getattr(self.context.get("request"), "user", None)
         if listed and not phone and not getattr(owner, "phone", ""):
             errors["contact_phone"] = ["Укажите телефон, по которому с вами свяжутся."]
+        lat = attrs.get("latitude", getattr(self.instance, "latitude", None))
+        lng = attrs.get("longitude", getattr(self.instance, "longitude", None))
+        if (lat is None) != (lng is None):
+            errors["latitude"] = ["Укажите обе координаты или очистите обе."]
         floor = attrs.get("floor", getattr(self.instance, "floor", None))
         total = attrs.get("floors_total", getattr(self.instance, "floors_total", None))
         if floor is not None and total is not None and floor > total:

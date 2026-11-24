@@ -49,6 +49,9 @@ class Property(OwnedModel):
     renovation = models.CharField("Ремонт", max_length=16, choices=Renovation.choices, blank=True)
     furniture = models.CharField("Мебель", max_length=16, choices=Furniture.choices, blank=True)
     amenities = models.JSONField("Что входит", default=list, blank=True)
+    # Точка на карте (WGS84). Пусто — объект не показывается на карте в поиске.
+    latitude = models.DecimalField("Широта", max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField("Долгота", max_digits=9, decimal_places=6, null=True, blank=True)
 
     class Meta:
         ordering = ("name", "id")
@@ -60,10 +63,38 @@ class Property(OwnedModel):
             models.CheckConstraint(
                 condition=Q(is_listed=False) | Q(listing_price__gt=0), name="property_listed_has_price"
             ),
+            models.CheckConstraint(
+                condition=Q(latitude__isnull=True, longitude__isnull=True)
+                | Q(latitude__isnull=False, longitude__isnull=False,
+                    latitude__gte=-90, latitude__lte=90, longitude__gte=-180, longitude__lte=180),
+                name="property_coords_valid",
+            ),
         ]
 
     def __str__(self):
         return self.name
+
+
+class SavedSearch(models.Model):
+    """Сохранённый поиск гостя: фильтры + Telegram-чат, куда слать новые объявления.
+
+    Гость не регистрируется: страница создаёт поиск и отдаёт ссылку на бота (/start s_<token>).
+    seen_ids — объявления, о которых уже знаем (при привязке записываются все текущие совпадения).
+    """
+
+    token = models.CharField(max_length=32, unique=True)
+    filters = models.JSONField(default=dict)
+    language = models.CharField(max_length=2, default="ru")
+    chat_id = models.BigIntegerField(null=True, blank=True, db_index=True)
+    seen_ids = models.JSONField(default=list, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+
+    def __str__(self):
+        return f"search {self.pk}"
 
 
 class Tenant(OwnedModel):

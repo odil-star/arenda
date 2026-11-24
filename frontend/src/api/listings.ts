@@ -25,6 +25,8 @@ export interface Listing {
   renovation: Renovation | "";
   furniture: Furniture | "";
   amenities: Amenity[];
+  latitude: string | null;
+  longitude: string | null;
   /** имя владельца (может быть пустым) */
   owner: number;
   owner_name: string;
@@ -43,9 +45,49 @@ export interface ListingParams {
   kind?: PropertyKind;
   rooms?: number;
   owner?: number;
+  price_min?: number;
   price_max?: number;
+  area_min?: number;
+  area_max?: number;
+  renovation?: Renovation;
+  furniture?: Furniture;
+  /** ключи через запятую: нужны все */
+  amenities?: string;
+  new_days?: number;
+  has_photo?: 1;
   ordering?: string;
 }
+
+export interface ListingStats {
+  count: number;
+  owners: number;
+  min_price: number | null;
+  new_week: number;
+}
+
+export function useListingStats() {
+  return useQuery({
+    queryKey: ["listings", "stats"],
+    staleTime: 60_000,
+    queryFn: async ({ signal }) => (await api.get<ListingStats>("/listings/stats/", { signal })).data,
+  });
+}
+
+export interface SavedSearchLink {
+  token: string;
+  start_command: string;
+  /** null, если имя бота не настроено на сервере */
+  link: string | null;
+}
+
+/** Сохранить текущие фильтры: гость получает ссылку на Telegram-бота. */
+export function useSaveSearch() {
+  return useMutation({
+    mutationFn: async (input: { filters: Record<string, string>; language: string }) =>
+      (await api.post<SavedSearchLink>("/listings/saved-searches/", input)).data,
+  });
+}
+
 
 export function useListings(params: ListingParams) {
   return useQuery({

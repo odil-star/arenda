@@ -1465,7 +1465,62 @@
     "ownerAll_one": "Egasining barcha e’lonlari ({{count}})",
     "ownerAll_few": "Egasining barcha e’lonlari ({{count}})",
     "ownerAll_many": "Egasining barcha e’lonlari ({{count}})",
-    "ownerAll_other": "Egasining barcha e’lonlari ({{count}})"
+    "ownerAll_other": "Egasining barcha e’lonlari ({{count}})",
+    "stats": {
+      "objects": "bo'sh obyekt",
+      "owners": "egalar",
+      "from": "narx",
+      "newWeek": "haftalik yangi"
+    },
+    "collections": {
+      "new": "Haftalik yangi",
+      "cheap": "Eng arzonlari",
+      "photo": "Rasmli",
+      "furnished": "Mebelli",
+      "euro": "Yevroremont"
+    },
+    "view": {
+      "label": "Ko'rinish",
+      "grid": "Setka",
+      "list": "Ro'yxat",
+      "map": "Xarita"
+    },
+    "moreFilters": "Filtrlar",
+    "moreFiltersCount": "Filtrlar · {{count}}",
+    "filterPanel": {
+      "priceMin": "Narx (dan), so'm",
+      "areaMin": "Maydon (dan), m²",
+      "areaMax": "Maydon (gacha), m²",
+      "anyRenovation": "Ta'mir: istalgan",
+      "anyFurniture": "Mebel: istalgan",
+      "amenities": "Albatta bo'lsin"
+    },
+    "chip": {
+      "priceFrom": "{{price}} dan",
+      "areaFrom": "{{value}} m² dan",
+      "areaTo": "{{value}} m² gacha",
+      "amenity": "{{name}}"
+    },
+    "map": {
+      "empty": "Xaritada nuqtasi bor e'lonlar yo'q. Boshqa ko'rinishni tanlang yoki filtrlarni o'zgartiring.",
+      "noPoints": "Xaritada nuqtasiz va ko'rsatilmagan: {{count}}. Ular ro'yxatda bor."
+    },
+    "save": {
+      "button": "Yangilarini xabar qiling",
+      "title": "Yangi e'lonlar haqida xabar",
+      "text": "Filtrlaringizga mos e'lon chiqishi bilan Telegramga yozamiz. Ro'yxatdan o'tish shart emas.",
+      "open": "Telegramni ochish",
+      "orSend": "Yoki botga buyruq yuboring:",
+      "copy": "Nusxalash",
+      "copied": "Nusxalandi",
+      "error": "Qidiruvni saqlab bo'lmadi. Qayta urinib ko'ring."
+    },
+    "mapPoint": {
+      "title": "Xaritadagi nuqta",
+      "hint": "Uy qayerdaligini belgilash uchun xaritaga bosing. Shunda e'lon «Xarita» rejimida ko'rinadi.",
+      "set": "Nuqtani surish yoki qaytadan tanlash mumkin.",
+      "clear": "Olib tashlash"
+    }
   },
   "ads": {
     "title": "E’lonlar",

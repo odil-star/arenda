@@ -19,7 +19,10 @@ def _language(chat_id):
 
 def link(code, chat_id):
     """Привязать чат по одноразовому коду (арендатор — «T…», владелец — «O…»)."""
-    code = (code or "").strip().upper()
+    raw = (code or "").strip()
+    if raw[:2].lower() == "s_":
+        return link_saved_search(raw[2:], chat_id)
+    code = raw.upper()
     now = timezone.now()
     if not code:
         return t("ru", "need_link")
@@ -51,6 +54,21 @@ def link(code, chat_id):
         except IntegrityError:
             return t("ru", "chat_taken")
     return t("ru", "unknown_code")
+
+
+def link_saved_search(token, chat_id):
+    """Привязать чат к сохранённому поиску с сайта; уже существующие объявления считаем «виденными»."""
+    from leasing.listings import apply_filters, available_properties
+    from leasing.models import SavedSearch
+
+    with transaction.atomic():
+        search = SavedSearch.objects.select_for_update().filter(token=token.lower(), is_active=True).first()
+        if search is None:
+            return t("ru", "search_unknown")
+        search.chat_id = chat_id
+        search.seen_ids = list(apply_filters(available_properties(), search.filters).values_list("pk", flat=True))
+        search.save(update_fields=["chat_id", "seen_ids"])
+        return t(search.language, "search_linked")
 
 
 def _active_leases(chat_id):
@@ -117,6 +135,8 @@ def unlink(chat_id):
     lang = _language(chat_id)
     Tenant.objects.filter(telegram_chat_id=chat_id).update(telegram_chat_id=None)
     User.objects.filter(telegram_chat_id=chat_id).update(telegram_chat_id=None)
+    from leasing.models import SavedSearch
+    SavedSearch.objects.filter(chat_id=chat_id).update(is_active=False)
     return t(lang, "unlinked")
 
 

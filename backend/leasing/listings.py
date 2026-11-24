@@ -3,8 +3,13 @@
 Гость видит только объекты, которые владелец сам разрешил показывать (is_listed),
 не на ремонте и без действующего договора. Связь — напрямую с владельцем: звонок или сообщение.
 """
+import secrets
+from datetime import timedelta
+from decimal import Decimal, InvalidOperation
+
+from django.conf import settings
 from django.core.files.storage import FileSystemStorage
-from django.db.models import Count, Exists, OuterRef, Prefetch
+from django.db.models import Count, Exists, Min, OuterRef, Prefetch, Q
 from django.http import FileResponse, Http404, HttpResponseRedirect
 from rest_framework import permissions, serializers, viewsets
 from rest_framework.decorators import action
@@ -12,7 +17,9 @@ from rest_framework.response import Response
 
 from portal.throttling import IPWindowThrottle
 
-from .models import Document, Lease, Property
+from django.utils import timezone
+
+from .models import Document, Lease, Property, SavedSearch
 
 
 SIMILAR_LIMIT = 10
@@ -20,6 +27,83 @@ SIMILAR_LIMIT = 10
 
 class ListingBrowseThrottle(IPWindowThrottle):
     scope, limit, window = "listing_browse", 240, 60
+
+
+class SavedSearchThrottle(IPWindowThrottle):
+    scope, limit, window = "saved_search", 10, 3600
+
+
+# Параметры, которые можно сохранить в поиске (остальное отбрасываем).
+FILTER_KEYS = ("search", "kind", "rooms", "owner", "price_min", "price_max", "area_min", "area_max",
+               "renovation", "furniture", "amenities", "new_days", "has_photo")
+MAX_NEW_DAYS = 365
+
+
+def _digits(value):
+    value = str(value or "").strip()
+    return int(value) if value.isdigit() and len(value) < 15 else None
+
+
+def _decimal(value):
+    try:
+        number = Decimal(str(value).strip())
+    except (InvalidOperation, ValueError):
+        return None
+    return number if number.is_finite() and number >= 0 else None
+
+
+def clean_filters(raw):
+    """Оставляет только известные фильтры с безопасными значениями (для сохранения поиска)."""
+    out = {}
+    for key in FILTER_KEYS:
+        value = str(raw.get(key, "")).strip()
+        if not value:
+            continue
+        if key == "search":
+            out[key] = value[:100]
+        elif key == "kind" and value in Property.Kind.values:
+            out[key] = value
+        elif key == "renovation" and value in Property.Renovation.values:
+            out[key] = value
+        elif key == "furniture" and value in Property.Furniture.values:
+            out[key] = value
+        elif key == "amenities":
+            items = [a for a in dict.fromkeys(value.split(",")) if a in Property.AMENITIES]
+            if items:
+                out[key] = ",".join(items)
+        elif key in ("area_min", "area_max"):
+            number = _decimal(value)
+            if number is not None:
+                out[key] = str(number)
+        elif key == "has_photo":
+            if value in ("1", "true"):
+                out[key] = "1"
+        elif _digits(value) is not None:
+            out[key] = str(min(_digits(value), MAX_NEW_DAYS if key == "new_days" else 10**13))
+    return out
+
+
+def apply_filters(qs, raw):
+    """Единая фильтрация выдачи: и для списка, и для сохранённых поисков."""
+    f = clean_filters(raw)
+    for term in f.get("search", "").split():
+        qs = qs.filter(Q(name__icontains=term) | Q(address__icontains=term) | Q(listing_description__icontains=term))
+    for key in ("kind", "rooms", "owner", "renovation", "furniture"):
+        if key in f:
+            qs = qs.filter(**{key: f[key]})
+    for key, lookup in (("price_min", "listing_price__gte"), ("price_max", "listing_price__lte"),
+                        ("area_min", "area_m2__gte"), ("area_max", "area_m2__lte")):
+        if key in f:
+            qs = qs.filter(**{lookup: f[key]})
+    wanted = {a for a in f.get("amenities", "").split(",") if a}
+    if wanted:  # JSON-contains не работает на SQLite (dev), поэтому отбираем id в Python: объектов немного
+        ids = [pk for pk, have in qs.order_by().values_list("pk", "amenities") if wanted <= set(have or [])]
+        qs = qs.filter(pk__in=ids)
+    if "new_days" in f:
+        qs = qs.filter(updated_at__gte=timezone.now() - timedelta(days=int(f["new_days"])))
+    if "has_photo" in f:
+        qs = qs.filter(Exists(Document.objects.filter(property=OuterRef("pk"), kind=Document.Kind.PHOTO)))
+    return qs
 
 
 def available_properties():
@@ -48,7 +132,8 @@ class ListingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Property
         fields = ("id", "title", "address", "kind", "area_m2", "rooms", "price", "description", "phone", "has_telegram",
-                  "floor", "floors_total", "renovation", "furniture", "amenities", "owner", "owner_name", "owner_since",
+                  "floor", "floors_total", "renovation", "furniture", "amenities", "latitude", "longitude",
+                  "owner", "owner_name", "owner_since",
                   "owner_listings", "photos", "created_at", "updated_at")
 
     def get_phone(self, obj):
@@ -75,25 +160,39 @@ class ListingSerializer(serializers.ModelSerializer):
 
 
 class ListingViewSet(viewsets.ReadOnlyModelViewSet):
-    """GET /api/listings/ — свободные объекты; ?kind=&rooms=&price_max=&search="""
+    """GET /api/listings/ — свободные объекты; фильтры — см. FILTER_KEYS."""
 
     authentication_classes = []
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ListingBrowseThrottle]
     serializer_class = ListingSerializer
-    filterset_fields = ("kind", "rooms", "owner")
-    search_fields = ("name", "address", "listing_description")
     ordering_fields = ("listing_price", "updated_at", "area_m2")
     ordering = ("-updated_at", "-id")
 
     def get_queryset(self):
-        qs = available_properties()
-        params = self.request.query_params
-        for name, lookup in (("price_min", "listing_price__gte"), ("price_max", "listing_price__lte")):
-            value = params.get(name, "")
-            if value.isdigit():
-                qs = qs.filter(**{lookup: int(value)})
-        return qs
+        return apply_filters(available_properties(), self.request.query_params)
+
+    @action(detail=False, methods=["get"])
+    def stats(self, request):
+        """Цифры для шапки страницы: сколько объектов, владельцев, от какой цены и сколько новых за неделю."""
+        qs = available_properties().order_by()
+        week = timezone.now() - timedelta(days=7)
+        agg = qs.aggregate(count=Count("pk"), owners=Count("owner", distinct=True), min_price=Min("listing_price"),
+                           new_week=Count("pk", filter=Q(updated_at__gte=week)))
+        return Response(agg)
+
+    @action(detail=False, methods=["post"], url_path="saved-searches", throttle_classes=[SavedSearchThrottle])
+    def saved_searches(self, request):
+        """Сохранить поиск: возвращает ссылку на Telegram-бота, где гость подтверждает получение уведомлений."""
+        filters = clean_filters(request.data.get("filters") or {}) if isinstance(request.data.get("filters", {}), dict) else {}
+        language = "uz" if request.data.get("language") == "uz" else "ru"
+        token = secrets.token_hex(12)
+        SavedSearch.objects.create(token=token, filters=filters, language=language)
+        username = settings.TELEGRAM_BOT_USERNAME
+        return Response({
+            "token": token, "start_command": f"/start s_{token}",
+            "link": f"https://t.me/{username}?start=s_{token}" if username else None,
+        }, status=201)
 
     @action(detail=True, methods=["get"])
     def similar(self, request, pk=None):

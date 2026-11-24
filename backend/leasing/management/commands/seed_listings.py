@@ -140,6 +140,8 @@ class Command(BaseCommand):
                 floor=floor, floors_total=floors, renovation=reno, furniture=furn, amenities=amen,
                 is_listed=True, listing_price=price, listing_description=desc,
                 contact_phone="+998901234567", has_telegram=True,
+                # точка на карте: вокруг центра Ташкента
+                latitude=round(41.2995 + rng.uniform(-0.07, 0.07), 6), longitude=round(69.2401 + rng.uniform(-0.09, 0.09), 6),
             )
             for i, scene in enumerate(SCENES[: rng.choice((2, 3, 3))], start=1):
                 data = render_room(rng, scene)
