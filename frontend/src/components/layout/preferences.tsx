@@ -118,7 +118,7 @@ export function UserMenu() {
         )}
         {user.role === "landlord" && (
           <DropdownMenuItem asChild>
-            <Link to="/profile">
+            <Link to={user.isAdmin ? "/admin/profile" : "/profile"}>
               <UserRound aria-hidden />
               {t("nav.profile")}
             </Link>

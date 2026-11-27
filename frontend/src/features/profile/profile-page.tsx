@@ -1,5 +1,6 @@
-import { GraduationCap } from "lucide-react";
-import { useState } from "react";
+import { Activity, Bell, GraduationCap, Palette, Plug, Sparkles, UserRound, Users } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Avatar } from "@/components/common/avatar";
@@ -9,16 +10,23 @@ import { PageHeader } from "@/components/common/page-header";
 import { ErrorState } from "@/components/common/states";
 import { RoleBadge } from "@/components/layout/user-card";
 import { useCurrentUser } from "@/components/layout/use-current-user";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import {
   useChangePassword, useMe, useOwnerTelegramCode, useOwnerTelegramUnlink, useUpdateMe,
 } from "@/api/hooks";
 import { errorKind, serverMessages } from "@/api/errors";
 import type { Language, Me } from "@/api/types";
+import { AdminActivityCard } from "./admin-activity-card";
+import { AssistantsCard } from "./assistants-card";
+import { BrandCard } from "./brand-card";
 import { DeviceSettings } from "./device-settings";
+import { IntegrationsCard } from "./integrations-card";
+import { TariffsTab } from "./tariffs-tab";
 import { TelegramCard } from "./telegram-card";
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -71,10 +79,10 @@ function PersonalForm({ me }: { me: Me }) {
 
   if (!editing) {
     return (
-      <section aria-labelledby="pf-h" className="space-y-2">
+      <section aria-labelledby="pf-h" className="space-y-3">
         <h2 id="pf-h" className="text-base font-semibold">{t("cabinet.contacts")}</h2>
-        <div className="space-y-3 rounded-xl border border-border bg-card p-4">
-          <dl className="space-y-2">
+        <div className="space-y-5 rounded-xl border border-border bg-card p-5">
+          <dl className="space-y-3">
             <Row label={t("cabinet.firstName")} value={me.first_name} />
             <Row label={t("cabinet.lastName")} value={me.last_name} />
             <Row label="Email" value={me.email} />
@@ -91,11 +99,11 @@ function PersonalForm({ me }: { me: Me }) {
   }
 
   return (
-    <section aria-labelledby="pf-h" className="space-y-2">
+    <section aria-labelledby="pf-h" className="space-y-3">
       <h2 id="pf-h" className="text-base font-semibold">{t("cabinet.contacts")}</h2>
       <form
         noValidate
-        className="space-y-4 rounded-xl border border-border bg-card p-4"
+        className="space-y-5 rounded-xl border border-border bg-card p-5"
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
@@ -181,9 +189,9 @@ function PasswordForm() {
 
   if (!open) {
     return (
-      <section aria-labelledby="pw-h" className="space-y-2">
+      <section aria-labelledby="pw-h" className="space-y-3">
         <h2 id="pw-h" className="text-base font-semibold">{t("cabinet.passwordTitle")}</h2>
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-5">
           <span className="text-sm tracking-widest text-muted-foreground" aria-hidden>••••••••</span>
           <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
             {t("cabinet.passwordChange")}
@@ -194,11 +202,11 @@ function PasswordForm() {
   }
 
   return (
-    <section aria-labelledby="pw-h" className="space-y-2">
+    <section aria-labelledby="pw-h" className="space-y-3">
       <h2 id="pw-h" className="text-base font-semibold">{t("cabinet.passwordTitle")}</h2>
       <form
         noValidate
-        className="space-y-4 rounded-xl border border-border bg-card p-4"
+        className="space-y-5 rounded-xl border border-border bg-card p-5"
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
@@ -228,7 +236,9 @@ function PasswordForm() {
   );
 }
 
-/** Профиль арендодателя и админа платформы: личные данные, пароль, Telegram. */
+type SectionId = "account" | "work" | "brand" | "integrations" | "assistants" | "devices" | "plan";
+
+/** Профиль арендодателя и админа платформы: меню разделов слева, справа открыт один раздел. */
 export function ProfilePage() {
   const { t } = useTranslation();
   const me = useMe();
@@ -236,47 +246,161 @@ export function ProfilePage() {
   const codeMutation = useOwnerTelegramCode();
   const unlinkMutation = useOwnerTelegramUnlink();
   const [tourOpen, setTourOpen] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const showPlans = user.role === "landlord" && !user.isAdmin;
 
   if (me.isError) return <ErrorState error={me.error} onRetry={() => void me.refetch()} />;
 
-  return (
-    <div className="mx-auto max-w-2xl">
-      <PageHeader title={t("profile.title")} />
-      <div className="space-y-6">
-        <Card className="flex items-center gap-3 p-4">
-          <Avatar name={user.name || "?"} />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{user.name}</p>
-            {user.role && <RoleBadge role={user.role} adminRole={user.adminRole} className="mt-1" />}
+  if (me.data?.assistant) {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <PageHeader title={t("profile.title")} />
+        <Card className="space-y-3 p-4">
+          <div className="flex items-center gap-3">
+            <Avatar name={user.name || "?"} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{user.name}</p>
+              <p className="truncate text-xs text-muted-foreground">{me.data.email}</p>
+            </div>
           </div>
+          <p className="text-sm">
+            <Badge tone="info">{t(`assistants.roles.${me.data.assistant.role}`)}</Badge>{" "}
+            {t("assistants.profileOwner", { owner: me.data.assistant.owner_name })}
+          </p>
+          <p className="text-sm text-muted-foreground">{t(`assistants.roleHint.${me.data.assistant.role}`)}</p>
+          <p className="text-sm text-muted-foreground">{t("assistants.profilePassword")}</p>
         </Card>
-        {me.data ? (
-          <>
-            <PersonalForm
-              key={`${me.data.first_name}|${me.data.last_name}|${me.data.phone}|${me.data.passport_data}|${me.data.language}`}
-              me={me.data}
-            />
-            <PasswordForm />
-            <TelegramCard
-              linked={me.data.telegram_linked}
-              requestCode={() => codeMutation.mutateAsync()}
-              unlink={() => unlinkMutation.mutateAsync()}
-              busy={unlinkMutation.isPending}
-            />
-            <Card className="p-4">
-              <h2 className="mb-3 text-base font-semibold">{t("pwa.title")}</h2>
-              <DeviceSettings />
-            </Card>
-            {user.role === "landlord" && !user.isAdmin && (
-              <Button variant="secondary" className="w-full" onClick={() => setTourOpen(true)}>
-                <GraduationCap aria-hidden /> {t("tour.label")}
-              </Button>
-            )}
-          </>
-        ) : (
-          <Skeleton className="h-64 w-full" />
-        )}
       </div>
+    );
+  }
+
+  const data = me.data;
+  if (!data) {
+    return (
+      <div>
+        <PageHeader title={t("profile.title")} />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  const tier = data.subscription?.tier ?? "free";
+  const sections: { id: SectionId; label: string; icon: ReactNode }[] = [
+    { id: "account", label: t("profile.account"), icon: <UserRound aria-hidden /> },
+    ...(user.isAdmin ? [{ id: "work" as const, label: t("admin.me.title"), icon: <Activity aria-hidden /> }] : []),
+    ...(showPlans
+      ? [
+          { id: "brand" as const, label: t("brand.title"), icon: <Palette aria-hidden /> },
+          { id: "integrations" as const, label: t("integrations.title"), icon: <Plug aria-hidden /> },
+          { id: "assistants" as const, label: t("assistants.title"), icon: <Users aria-hidden /> },
+        ]
+      : []),
+    { id: "devices", label: t("pwa.title"), icon: <Bell aria-hidden /> },
+    ...(showPlans ? [{ id: "plan" as const, label: t("tiers.tabPlan"), icon: <Sparkles aria-hidden /> }] : []),
+  ];
+  const requested = params.get("section");
+  const active = sections.find((s) => s.id === requested)?.id ?? "account";
+  const open = (id: SectionId) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (id === "account") next.delete("section");
+        else next.set("section", id);
+        return next;
+      },
+      { replace: true },
+    );
+  const seePlans = () => open("plan");
+
+  const content: Record<SectionId, ReactNode> = {
+    account: (
+      <div className="space-y-8">
+        <PersonalForm key={`${data.first_name}|${data.last_name}|${data.phone}|${data.passport_data}|${data.language}`} me={data} />
+        <PasswordForm />
+        <TelegramCard
+          linked={data.telegram_linked}
+          refresh={() => me.refetch()}
+          requestCode={() => codeMutation.mutateAsync()}
+          unlink={() => unlinkMutation.mutateAsync()}
+          busy={unlinkMutation.isPending}
+        />
+      </div>
+    ),
+    work: <AdminActivityCard />,
+    brand: <BrandCard onSeePlans={seePlans} />,
+    integrations: <IntegrationsCard onSeePlans={seePlans} />,
+    assistants: <AssistantsCard subscription={data.subscription} onSeePlans={seePlans} />,
+    devices: (
+      <section aria-labelledby="dev-h" className="space-y-3">
+        <h2 id="dev-h" className="text-base font-semibold">{t("pwa.title")}</h2>
+        <Card className="p-5">
+          <DeviceSettings />
+        </Card>
+      </section>
+    ),
+    plan: (
+      <section aria-labelledby="plan-h" className="space-y-3">
+        <h2 id="plan-h" className="text-base font-semibold">{t("tiers.tabPlan")}</h2>
+        <TariffsTab subscription={data.subscription} />
+      </section>
+    ),
+  };
+
+  const tourButton = (className: string) =>
+    showPlans && (
+      <Button variant="secondary" className={className} onClick={() => setTourOpen(true)}>
+        <GraduationCap aria-hidden /> {t("tour.label")}
+      </Button>
+    );
+
+  return (
+    <div>
+      <PageHeader title={t("profile.title")} />
+      <div className="grid items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-8">
+        <aside className="min-w-0 space-y-4 lg:sticky lg:top-6">
+          <Card className="flex items-center gap-4 p-5">
+            <Avatar name={user.name || "?"} size="lg" />
+            <div className="min-w-0">
+              <p className="truncate font-semibold">{user.name}</p>
+              {data.email && <p className="truncate text-sm text-muted-foreground">{data.email}</p>}
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {user.role && <RoleBadge role={user.role} adminRole={user.adminRole} />}
+                {showPlans && (
+                  <Badge tone={tier === "vip" ? "warning" : tier === "prime" ? "info" : "neutral"}>{t(`tiers.${tier}.name`)}</Badge>
+                )}
+              </div>
+            </div>
+          </Card>
+          <nav
+            aria-label={t("profile.title")}
+            className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:flex-col lg:gap-0.5 lg:overflow-visible lg:rounded-xl lg:border lg:border-border lg:bg-card lg:p-2"
+          >
+            {sections.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                aria-current={active === s.id ? "page" : undefined}
+                onClick={() => open(s.id)}
+                className={cn(
+                  "flex min-h-10 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-lg border px-3 text-sm font-medium transition-colors lg:border-transparent",
+                  "focus-visible:outline-2 focus-visible:outline-ring [&_svg]:size-4 [&_svg]:shrink-0",
+                  active === s.id
+                    ? "border-transparent bg-muted text-foreground"
+                    : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground lg:bg-transparent",
+                )}
+              >
+                {s.icon}
+                {s.label}
+              </button>
+            ))}
+          </nav>
+          {tourButton("hidden w-full lg:inline-flex")}
+        </aside>
+        <div key={active} className={cn("min-w-0", active !== "plan" && active !== "integrations" && "max-w-3xl")}>
+          {content[active]}
+        </div>
+      </div>
+      {tourButton("mt-6 w-full lg:hidden")}
       {tourOpen && <OnboardingTour kind="landlord" open onClose={() => setTourOpen(false)} />}
     </div>
   );

@@ -68,6 +68,7 @@ export function RequireAdmin() {
 /** Разделы арендодателя: платформенного админа отправляем в его раздел. */
 export function LandlordOnly() {
   const query = useMe();
+  const { pathname } = useLocation();
   if (query.isPending) {
     return (
       <div className="p-6">
@@ -75,7 +76,7 @@ export function LandlordOnly() {
       </div>
     );
   }
-  if (query.data?.is_admin) return <Navigate to="/admin" replace />;
+  if (query.data?.is_admin) return <Navigate to={pathname === "/profile" ? "/admin/profile" : "/admin"} replace />;
   return <Outlet />;
 }
 

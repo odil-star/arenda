@@ -32,6 +32,9 @@ export function useCurrentUser() {
     /** undefined, пока роль не определена */
     role,
     isAdmin: role === "landlord" && landlord.data?.is_admin === true,
+    /** Помощник владельца (бухгалтер/управляющий): урезанное меню и профиль */
+    isAssistant: role === "landlord" && !!landlord.data?.assistant,
+    assistantRole: landlord.data?.assistant?.role ?? null,
     /** Роль сотрудника платформы: admin — всё, support — только просмотр */
     adminRole: landlord.data?.admin_role ?? null,
     isPending: roleQuery.isPending || profilePending,

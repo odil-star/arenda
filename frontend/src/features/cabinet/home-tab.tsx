@@ -10,6 +10,7 @@ import { useFormat } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { firstPayable, groupPayments, sortLeases } from "./cabinet-logic";
 import { EMPTY, Requisites, Section } from "./cabinet-ui";
+import { LandlordContact, YearSummary } from "./lease-extras";
 
 export function HomeTab({ payments, leases }: { payments: TenantPayment[] | undefined; leases: TenantLease[] | undefined }) {
   const { t } = useTranslation();
@@ -146,6 +147,9 @@ export function HomeTab({ payments, leases }: { payments: TenantPayment[] | unde
           </ul>
         </Section>
       )}
+      <YearSummary payments={payments} leases={leases} />
+
+      {active.length === 1 && <LandlordContact lease={active[0]} />}
     </>
   );
 }

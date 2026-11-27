@@ -2,15 +2,22 @@ import { Bell } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { useMarkNotificationsRead, useTenantMedia, useTenantNotifications, type LeaseMedia } from "@/api/portal";
+import { useMarkNotificationsRead, useTenantMedia, useTenantNotifications, type LeaseMedia, type TenantNotification } from "@/api/portal";
 import { MediaGrid } from "./media-parts";
 
 const fileUrl = (m: LeaseMedia) => `/tenant/media/${m.id}/file/`;
+
+function targetFor(n: TenantNotification) {
+  if (n.kind === "repair_updated") return `/cabinet?tab=services&lease=${n.lease}`;
+  if (n.kind === "request_resolved") return `/cabinet?tab=contract&lease=${n.lease}`;
+  return `/cabinet/contracts/${n.lease}/media`;
+}
 
 /** Уведомления о новых и изменённых фото/видео. Нажатие ведёт к материалам дома. */
 export function MediaNotifications() {
   const { t } = useTranslation();
   const notes = useTenantNotifications();
+  const { mutate: markRead } = useMarkNotificationsRead();
   const unread = (notes.data ?? []).filter((n) => !n.is_read && n.lease !== null);
   if (unread.length === 0) return null;
   return (
@@ -18,7 +25,9 @@ export function MediaNotifications() {
       {unread.map((n) => (
         <li key={n.id}>
           <Link
-            to={`/cabinet/contracts/${n.lease}/media`}
+            to={targetFor(n)}
+            // фото помечаются прочитанными на странице медиа, остальные — сразу при переходе
+            onClick={() => n.kind.startsWith("media") || markRead()}
             className="flex items-start gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3 text-sm hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             <Bell className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />

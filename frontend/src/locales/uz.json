@@ -44,7 +44,8 @@
     "admin": "Admin",
     "profile": "Profil",
     "support": "Yordam",
-    "ads": "E’lonlar"
+    "ads": "E’lonlar",
+    "requests": "Arizalar"
   },
   "language": {
     "title": "Til",
@@ -288,7 +289,10 @@
       "area": "Maydoni, m²",
       "areaShort": "Maydoni",
       "underRepair": "Taʼmirda",
-      "underRepairHint": "Taʼmir davomida obyektni ijaraga berib boʻlmaydi."
+      "underRepairHint": "Taʼmir davomida obyektni ijaraga berib boʻlmaydi.",
+      "houseRules": "Uy qoidalari va foydali maʼlumot",
+      "houseRulesHint": "Ijarachilar buni kabinetdagi «Shartnoma» bo‘limida ko‘radi.",
+      "houseRulesPlaceholder": "Wi-Fi: nomi va paroli\nAvtoturargoh, chiqindi, sukunat soatlari\nFavqulodda xizmatlar telefonlari"
     },
     "invite": {
       "action": "Ijarachini taklif qilish",
@@ -337,6 +341,8 @@
     "codeExpires": "{{date}} gacha amal qiladi",
     "copyCode": "Kodni nusxalash",
     "codeCopied": "Kod nusxalandi",
+    "copyLink": "Ijarachi uchun havolani nusxalash",
+    "linkCopied": "Havola nusxalandi — ijarachiga yuboring",
     "livesIn": "Qayerda yashaydi",
     "noLeaseAction": "Shartnoma tuzish"
   },
@@ -592,7 +598,8 @@
       "home": "Asosiy",
       "payments": "To'lovlar",
       "contract": "Shartnoma",
-      "profile": "Profil"
+      "profile": "Profil",
+      "services": "Xizmat"
     },
     "hello": "Assalomu alaykum, {{name}}",
     "due": "To'lash kerak",
@@ -644,7 +651,9 @@
     "notify": {
       "media_added": "Uy egasi foto va video qo‘shdi: {{count}}",
       "media_changed": "Uy egasi foto va videoni o‘zgartirdi",
-      "view": "Ko‘rish"
+      "view": "Ko‘rish",
+      "repair_updated": "Ta’mirlash arizangiz holati o‘zgardi",
+      "request_resolved": "Uy egasi so‘rovingizga javob berdi"
     },
     "media": "Kvartira foto va videolari",
     "inventoryTitle": "Ijaraga nimalar kiradi",
@@ -675,7 +684,44 @@
     "telegramOff": "Ulanmagan",
     "paidPart": "{{total}} dan {{paid}} to‘langan",
     "receiptDownload": "Kvitansiyani yuklab olish",
-    "receiptFailed": "Kvitansiyani yuklab boʻlmadi. Keyinroq urinib koʻring."
+    "receiptFailed": "Kvitansiyani yuklab boʻlmadi. Keyinroq urinib koʻring.",
+    "rules": "Uy qoidalari",
+    "summary": {
+      "title": "Yil yakunlari",
+      "paid": "{{year}}-yilda to‘langan",
+      "onTime": "O‘z vaqtida to‘lovlar",
+      "deposit": "Garov"
+    },
+    "contact": {
+      "title": "Uy egasi",
+      "call": "Qo‘ng‘iroq qilish",
+      "telegram": "Telegramda yozish",
+      "noPhone": "Uy egasi hali telefon raqamini ko‘rsatmagan. Yordam orqali yozing."
+    },
+    "leaseReq": {
+      "title": "Shartnoma muddati",
+      "extend": "Shartnomani uzaytirish",
+      "leave": "Ko‘chib chiqish haqida xabar",
+      "hint": "Uy egasi xabar oladi va javob beradi. Shartnoma faqat uning qarori bilan o‘zgaradi.",
+      "months": "Necha oyga",
+      "date": "Ko‘chib chiqish sanasi",
+      "dateInvalid": "Bugungi yoki kelgusi sanani kiriting",
+      "comment": "Izoh",
+      "sent": "So‘rov uy egasiga yuborildi",
+      "cancel": "So‘rovni qaytarib olish",
+      "cancelled": "So‘rov qaytarib olindi",
+      "extendLine_one": "Shartnomani {{count}} oyga uzaytirish",
+      "extendLine_few": "Shartnomani {{count}} oyga uzaytirish",
+      "extendLine_many": "Shartnomani {{count}} oyga uzaytirish",
+      "extendLine_other": "Shartnomani {{count}} oyga uzaytirish",
+      "leaveLine": "Ko‘chib chiqish: {{date}}",
+      "status": {
+        "pending": "Javob kutilmoqda",
+        "accepted": "Qabul qilindi",
+        "declined": "Rad etildi",
+        "cancelled": "Qaytarib olindi"
+      }
+    }
   },
   "quick": {
     "title": "Tezkor amallar",
@@ -714,7 +760,9 @@
     "leaseEndsSoon_one": "Shartnoma {{count}} kundan keyin tugaydi ({{date}}) — uzaytirish haqida qaror qiling",
     "leaseEndsSoon_few": "Shartnoma {{count}} kundan keyin tugaydi ({{date}}) — uzaytirish haqida qaror qiling",
     "leaseEndsSoon_many": "Shartnoma {{count}} kundan keyin tugaydi ({{date}}) — uzaytirish haqida qaror qiling",
-    "leaseEndsSoon_other": "Shartnoma {{count}} kundan keyin tugaydi ({{date}}) — uzaytirish haqida qaror qiling"
+    "leaseEndsSoon_other": "Shartnoma {{count}} kundan keyin tugaydi ({{date}}) — uzaytirish haqida qaror qiling",
+    "requests": "Arizalar va ko‘rsatkichlar",
+    "allRequests": "Barcha arizalar"
   },
   "receipts": {
     "title": "To‘lov cheklari",
@@ -772,6 +820,26 @@
     "next": "Keyingisi"
   },
   "admin": {
+    "me": {
+      "title": "Admin paneldagi ish",
+      "role": "Rol",
+      "joined": "Jamoada",
+      "lastLogin": "Oxirgi kirish",
+      "lastSeen": "Admin panelda boʻlgan",
+      "online": "Tarmoqda",
+      "offline": "Tarmoqda emas",
+      "actions": "Mening harakatlarim",
+      "today": "Bugun",
+      "week": "7 kun",
+      "month": "30 kun",
+      "total": "Jami",
+      "support": "Yordamdagi javoblar",
+      "threads": "30 kundagi suhbatlar",
+      "openThreads": "Hozir ochiq suhbatlar",
+      "recent": "Oxirgi harakatlar",
+      "noRecent": "Siz hali hech narsani oʻzgartirmagansiz",
+      "allAudit": "Butun jurnal"
+    },
     "title": "Administrator",
     "description": "Xizmat holati, ijaraga beruvchilar va toʻlovlar. Ijaraga beruvchilar maʼlumoti faqat oʻqish uchun.",
     "tabs": {
@@ -787,7 +855,8 @@
       "webhooks": "Vebxuklar",
       "announcements": "Eʼlonlar",
       "plans": "Tariflar",
-      "support": "Yordam chati"
+      "support": "Yordam chati",
+      "profile": "Profil"
     },
     "hints": {
       "overview": "Xizmatning asosiy raqamlari",
@@ -883,7 +952,10 @@
       "noteAdd": "Qoʻshish",
       "noteSaved": "Izoh qoʻshildi",
       "noteDelete": "Izohni oʻchirish",
-      "noteFailed": "Izohni saqlab boʻlmadi"
+      "noteFailed": "Izohni saqlab boʻlmadi",
+      "managerName": "Menejer: ismi",
+      "managerContact": "Menejer: aloqa",
+      "managerHint": "Telefon yoki @telegram — ijarachiga «Tarif» sahifasida koʻrsatamiz"
     },
     "audit": {
       "search": "Email yoki amal boʻyicha qidirish",
@@ -939,7 +1011,8 @@
     "groups": {
       "overview": "Umumiy",
       "data": "Maʼlumotlar",
-      "system": "Tizim"
+      "system": "Tizim",
+      "account": "Akkaunt"
     },
     "export": {
       "button": "CSV yuklab olish",
@@ -1161,7 +1234,9 @@
       "delete": "Oʻchirish",
       "empty": "Hozircha tariflar yoʻq",
       "emptyHint": "Tarif obyektlar limitini belgilaydi. Tarifsiz ijaraga beruvchida cheklov yoʻq.",
-      "note": "Limit obyekt qoʻshilganda ishlaydi. Toʻlov muddati faqat adminga koʻrsatiladi va hech narsani bloklamaydi."
+      "note": "Limit obyekt qoʻshilganda ishlaydi. Toʻlov muddati faqat adminga koʻrsatiladi va hech narsani bloklamaydi.",
+      "tier": "Daraja",
+      "tierHint": "Free / Prime / VIP — eksklyuziv imkoniyatlar shu boʻyicha yoqiladi"
     },
     "section": "Boʻlim",
     "areas": {
@@ -1177,7 +1252,8 @@
       "audit": "Jurnal",
       "announcements": "Eʼlonlar",
       "messages": "Xabarlar",
-      "admins": "Jamoa"
+      "admins": "Jamoa",
+      "profile": "Profil"
     },
     "areasShort": {
       "overview": "Umumiy",
@@ -1192,7 +1268,8 @@
       "audit": "Jurnal",
       "announcements": "Eʼlonlar",
       "messages": "Xabarlar",
-      "admins": "Jamoa"
+      "admins": "Jamoa",
+      "profile": "Profil"
     },
     "areaHints": {
       "overview": "Xizmatning asosiy raqamlari",
@@ -1207,7 +1284,8 @@
       "audit": "Harakatlar jurnali",
       "announcements": "Kabinetdagi eʼlonlar",
       "messages": "Ijaraga beruvchilarga xabarlar",
-      "admins": "Administratorlar va yordam"
+      "admins": "Administratorlar va yordam",
+      "profile": "Shaxsiy maʼlumotlar, parol, Telegram"
     },
     "more": "Yana",
     "moreTitle": "Boshqa boʻlimlar",
@@ -1215,17 +1293,23 @@
   },
   "profile": {
     "title": "Profil",
+    "account": "Akkaunt",
     "emailHint": "Email — sizning loginingiz, uni oʻzgartirib boʻlmaydi.",
     "passport": "Pasport maʼlumotlari",
     "repeatPassword": "Yangi parolni takrorlang",
     "passwordMismatch": "Parollar mos kelmadi",
     "telegramTitle": "Telegram",
-    "telegramHint": "Kodni oling va botimizga yuboring — eslatmalar Telegramga keladi.",
+    "telegramHint": "«Ulash» tugmasini bosing — botimiz ochiladi. Eslatmalar Telegramga keladi.",
     "telegramLinked": "Telegram ulangan",
     "telegramUnlink": "Uzish",
     "telegramUnlinkTitle": "Telegram uzilsinmi?",
     "telegramUnlinkHint": "Telegramdagi eslatmalar kelmay qoladi. Istalgan payt qayta ulashingiz mumkin.",
-    "telegramUnlinked": "Telegram uzildi"
+    "telegramUnlinked": "Telegram uzildi",
+    "telegramConnect": "Telegramni ulash",
+    "telegramWaiting": "Botni oching va «Start» tugmasini bosing — ulanish avtomatik bajariladi, sahifa yangilanadi.",
+    "telegramOpen": "Telegramni ochish",
+    "telegramConnected": "Telegram ulandi",
+    "telegramManual": "Ochilmadimi? Kodni botga qo'lda yuboring:"
   },
   "announcementBanner": {
     "dismiss": "Eʼlonni yashirish"
@@ -1304,7 +1388,8 @@
       "presenceHint": "Foydalanuvchilar yordam onlayn ekanini koʻradi",
       "onlineHint": "Foydalanuvchilar koʻradi: «Yordam onlayn»",
       "offlineHint": "Javob berishga tayyor boʻlganda yoqing",
-      "presenceFailed": "Holatni oʻzgartirib boʻlmadi"
+      "presenceFailed": "Holatni oʻzgartirib boʻlmadi",
+      "priority": "Prime"
     },
     "quickReplies": "Tezkor javoblar",
     "online": "Onlayn",
@@ -1827,5 +1912,325 @@
         "text": "Ma’lumotlar, eslatmalar uchun Telegram, mavzu va til. Qo‘llanmani shu yerdan qayta ochish mumkin."
       }
     }
+  },
+  "services": {
+    "send": "Yuborish",
+    "repairs": "Ta’mirlash arizalari",
+    "repairNew": "Yangi ariza",
+    "repairTitle": "Nima bo‘ldi",
+    "repairTitlePlaceholder": "Masalan: oshxonada kran oqyapti",
+    "repairDescription": "Tafsilotlar",
+    "repairSent": "Ariza uy egasiga yuborildi",
+    "repairsEmpty": "Hozircha arizalar yo‘q. Biror narsa buzilsa, ariza yarating — uy egasi darhol ko‘radi.",
+    "repairStatus": {
+      "new": "Yangi",
+      "in_progress": "Jarayonda",
+      "done": "Hal qilindi",
+      "rejected": "Rad etildi"
+    },
+    "photoAdd": "Foto qo‘shish",
+    "photoRemove": "Fotoni olib tashlash",
+    "photoType": "Faqat JPG, PNG yoki WebP foto mos keladi",
+    "photoSize": "Foto juda katta (eng ko‘pi 15 MB)",
+    "meters": "Hisoblagichlar",
+    "meter": {
+      "electricity": "Elektr",
+      "water_cold": "Sovuq suv",
+      "water_hot": "Issiq suv",
+      "gas": "Gaz"
+    },
+    "meterNone": "Ko‘rsatkichlar hali yo‘q",
+    "meterSend": "Yuborish",
+    "meterChange": "O‘zgartirish",
+    "meterValue": "Ko‘rsatkich",
+    "meterHint": "Hisoblagichdagi butun son. U o‘tgan oydagidan kichik bo‘lishi mumkin emas.",
+    "meterInvalid": "Ko‘rsatkichni butun son bilan kiriting",
+    "meterSent": "Ko‘rsatkich yuborildi",
+    "meterUsage": "Oylar bo‘yicha sarf",
+    "photoKeep": "Foto 3 kun saqlanadi, keyin avtomatik o‘chiriladi. Ariza va ko‘rsatkich saqlanib qoladi."
+  },
+  "requests": {
+    "title": "Ijarachilar arizalari",
+    "description": "Ta’mirlash, uzaytirish va ko‘chib chiqish so‘rovlari, hisoblagich ko‘rsatkichlari.",
+    "tabRepairs": "Ta’mirlash",
+    "tabLease": "Uzaytirish va ko‘chish",
+    "tabMeters": "Hisoblagichlar",
+    "repairsEmpty": "Arizalar yo‘q",
+    "repairsEmptyText": "Ijarachi ta’mirlash arizasini yuborsa, u shu yerda ko‘rinadi.",
+    "leaseEmpty": "So‘rovlar yo‘q",
+    "leaseEmptyText": "Ijarachilar shartnomani uzaytirishni yoki ko‘chib chiqishni so‘rashi mumkin.",
+    "metersEmpty": "Ko‘rsatkichlar yo‘q",
+    "metersEmptyText": "Ijarachilar yuborgan ko‘rsatkichlar shu yerda va hisoblagichlar hisobida paydo bo‘ladi.",
+    "respond": "Javob berish",
+    "accept": "Qabul qilish",
+    "decline": "Rad etish",
+    "acceptHint": "Shartnoma tugash sanasi o‘zi o‘zgarmaydi — shartnomani qo‘lda tuzating.",
+    "comment": "Ijarachiga izoh",
+    "commentPlaceholder": "Ijarachiga izoh (ixtiyoriy)",
+    "saved": "Saqlandi"
+  },
+  "tiers": {
+    "tabProfile": "Profil",
+    "tabPlan": "Tarif",
+    "yourPlan": "Sizning tarifingiz",
+    "current": "Sizning tarifingiz",
+    "includes": "{{tier}}dagi hammasi, shuningdek:",
+    "soon": "Tez orada",
+    "connect": "{{tier}} ulash",
+    "paidUntil": "{{date}} gacha toʻlangan",
+    "expired": "«{{name}}» tarifi muddati {{date}} da tugagan — siz Free tarifdasiz. Uzaytirish uchun qoʻllab-quvvatlashga yozing.",
+    "freeNote": "Hozirgi barcha imkoniyatlar Free tarifida ochiq. Prime va VIP faqat yangi imkoniyat qoʻshadi, hech narsani olib qoʻymaydi.",
+    "groupPrime": "Prime tarifida qoʻshiladi",
+    "groupVip": "Faqat VIP tarifida",
+    "howToConnect": "Tarif qoʻllab-quvvatlash orqali ulanadi: bizga yozing, hammasini sozlab beramiz.",
+    "allIncluded": "Sizda eng yuqori tarif — barcha imkoniyatlar ochiq.",
+    "youAreHere": "Siz shu yerdasiz",
+    "haveNow": "Hozir mavjud",
+    "unlocks": "{{tier}} tarifida ochiladi",
+    "alsoFrom": "Va {{tier}} tarifidagi hamma narsa",
+    "ladder": "Tarif darajalari",
+    "free": {
+      "name": "Free",
+      "tagline": "Ijarani boshqarish uchun kerakli hamma narsa"
+    },
+    "prime": {
+      "name": "Prime",
+      "tagline": "Koʻproq avtomatlashtirish va koʻrinish"
+    },
+    "vip": {
+      "name": "VIP",
+      "tagline": "Ijarani biznesdek boshqaradiganlar uchun"
+    },
+    "perks": {
+      "unlimited": {
+        "title": "Obyektlar, ijarachilar va shartnomalar",
+        "text": "Soni cheklanmagan"
+      },
+      "pdf": {
+        "title": "PDF shartnomalar",
+        "text": "Shartnoma va toʻlov jadvali avtomatik yaratiladi"
+      },
+      "telegram": {
+        "title": "Telegramdagi eslatmalar",
+        "text": "3 kun oldin, muddat kuni va kechikkanda — rus va oʻzbek tillarida"
+      },
+      "receipts": {
+        "title": "Chek va toʻlovlar",
+        "text": "Ijarachi chek yuklaydi, siz Telegram yoki kabinetda tasdiqlaysiz"
+      },
+      "reports": {
+        "title": "Hisobot va eksport",
+        "text": "Daromad, xarajat, foyda; CSV va XLSX ga yuklash"
+      },
+      "media": {
+        "title": "Foto, video va hisoblagichlar",
+        "text": "Kvartira holati va koʻrsatkichlar shartnomada qayd etiladi"
+      },
+      "listings": {
+        "title": "Eʼlonlar",
+        "text": "Obyektlarni umumiy lentada eʼlon qilish"
+      },
+      "sms": {
+        "title": "Eslatmalarning SMS nusxasi",
+        "text": "Eslatma ham Telegramga, ham SMS bilan keladi — ijarachi muddatni o'tkazib yubormaydi"
+      },
+      "brand": {
+        "title": "Oʻz shartnoma blankasi",
+        "text": "Nom, rekvizitlar va logotip — PDF shartnoma sarlavhasida"
+      },
+      "digest": {
+        "title": "Oylik hisobot",
+        "text": "Har oyning 1-kuni oy yakunlari Telegram va pochtaga oʻzi keladi"
+      },
+      "boost": {
+        "title": "Mahkamlash va Prime belgisi",
+        "text": "3 tagacha eʼloningiz lentaning tepasida, Prime belgisi bilan"
+      },
+      "storage": {
+        "title": "Foto va video uchun 10 GB",
+        "text": "Toʻliq tarixli oʻnlab obyektga yetadi"
+      },
+      "priority": {
+        "title": "Ustuvor qoʻllab-quvvatlash",
+        "text": "Yordam chatidagi murojaatlaringiz birinchi navbatda koʻriladi"
+      },
+      "manager": {
+        "title": "Shaxsiy menejer",
+        "text": "Sozlash, maʼlumot koʻchirish va har qanday savolda yordam"
+      },
+      "team": {
+        "title": "Kabinetdagi yordamchilar",
+        "text": "Buxgalter va boshqaruvchi — oʻz kirishi va cheklangan ruxsati bilan"
+      },
+      "screening": {
+        "title": "Ijarachini tekshirish",
+        "text": "Platforma boʻyicha ijarachining toʻlov obroʻsi — shaxssiz va faqat uning roziligi bilan"
+      },
+      "featured": {
+        "title": "Lenta tepasi va VIP belgisi",
+        "text": "Barcha eʼlonlaringiz har doim lentaning tepasida, hammadan yuqorida, Primedan ham — har qanday saralashda"
+      },
+      "whitelabel": {
+        "title": "Ijarachi kabineti sizning nomingizda",
+        "text": "Ijarachi kabineti sarlavhasida sizning logotip va nomingiz"
+      },
+      "integrations": {
+        "title": "Buxgalteriya va integratsiyalar",
+        "text": "CSV eksport, faqat oʻqish uchun API kaliti va toʻlovlar haqida webhooklar"
+      }
+    },
+    "manager": {
+      "title": "Sizning menejeringiz",
+      "pending": "Menejer tez orada tayinlanadi — siz bilan bogʻlanamiz."
+    }
+  },
+  "brand": {
+    "title": "Shartnoma blankasi",
+    "hint": "Nom, rekvizitlar va logotip PDF shartnomaning sarlavhasida chop etiladi. Ularsiz shartnoma standart boʻlib qoladi.",
+    "name": "Sarlavhadagi nom yoki F.I.Sh.",
+    "requisites": "Rekvizitlar va aloqa",
+    "requisitesHint": "STIR, manzil, telefon, bank rekvizitlari — 1000 belgigacha, qator uzilishlari saqlanadi",
+    "logo": "Logotip",
+    "logoUpload": "Logotip yuklash",
+    "logoReplace": "Almashtirish",
+    "logoRemove": "Olib tashlash",
+    "logoSet": "Logotip yuklangan",
+    "logoHint": "PNG yoki JPG, 1 MB gacha. Shaffof yoki oq fon yaxshiroq.",
+    "logoTooBig": "Logotip juda katta — 1 MB dan oshmasin.",
+    "reset": "Blankani tiklash",
+    "resetDone": "Blanka tiklandi",
+    "locked": "Oʻz shartnoma blankasi Prime va undan yuqori tarifda mavjud.",
+    "seePlans": "Tariflarni koʻrish"
+  },
+  "integrations": {
+    "title": "Integratsiyalar",
+    "locked": "Buxgalteriya uchun eksport, API kaliti va webhooklar VIP tarifida mavjud.",
+    "exportTitle": "Buxgalteriya uchun eksport",
+    "exportHint": "Excel va 1C uchun CSV: haqiqiy tushumlar jurnali yoki toʻlov jadvali. Davrni koʻrsatmasangiz — hammasi yuklanadi.",
+    "from": "Sanadan",
+    "to": "Sanagacha",
+    "exportTransactions": "Tushumlar jurnali",
+    "exportPayments": "Toʻlov jadvali",
+    "keyTitle": "API kaliti",
+    "keyHint": "Kalit faqat maʼlumotlaringizni oʻqiydi (toʻlovlar, shartnomalar, obyektlar, pasportsiz ijarachilar) va boshqa hech narsa qila olmaydi. Uni parol kabi saqlang.",
+    "createKey": "Kalit yaratish",
+    "reissue": "Qayta chiqarish",
+    "revoke": "Bekor qilish",
+    "lastUsed": "{{date}} da ishlatilgan",
+    "neverUsed": "hali ishlatilmagan",
+    "endpoints": "Mavjud: /api/v1/payments/, transactions/, leases/, properties/, tenants/. Jadval uchun ?file=csv qoʻshing.",
+    "secretOnce": "Bu qiymatni hozir saqlang — keyin koʻrsatilmaydi.",
+    "copy": "Nusxalash",
+    "copied": "Nusxalandi",
+    "copyFailed": "Nusxalab boʻlmadi",
+    "savedIt": "Saqladim",
+    "hookTitle": "Webhook",
+    "hookHint": "Toʻlov hisobga olinganda (payment.received) manzilingizga JSON bilan POST yuboramiz. Imzo — HMAC-SHA256.",
+    "hookUrl": "Manzil",
+    "hookUrlHint": "Faqat https va ommaviy manzil. Ichki manzillar taqiqlangan.",
+    "hookOn": "Yoqilgan",
+    "hookOff": "Xatolardan keyin oʻchirilgan",
+    "hookEnable": "Qayta yoqish",
+    "lastAttempt": "Oxirgi yuborish {{date}}: {{status}}",
+    "hookTest": "Tekshirish",
+    "hookRotate": "Yangi sir",
+    "hookDelete": "Oʻchirish",
+    "testOk": "Manzil javob berdi: {{status}}",
+    "testFailed": "Yuborib boʻlmadi",
+    "hookVerify": "Imzoni tekshirish: «timestamp.tana» ning HMAC-SHA256 si sir bilan; X-Webhook-Timestamp va X-Webhook-Signature sarlavhalari. Voqea noyob X-Webhook-Id bilan keladi — bir xil id takrorlarini eʼtiborsiz qoldiring."
+  },
+  "assistants": {
+    "title": "Yordamchilar",
+    "hint": "Buxgalter va boshqaruvchi oʻz email va paroli bilan kirib, rolga mos ravishda maʼlumotlaringiz bilan ishlaydi. Shaxsiy sozlamalar, tarif, integratsiyalar va yordam chati ularga yopiq.",
+    "locked": "Yordamchilar VIP tarifida mavjud.",
+    "add": "Yordamchi qoʻshish",
+    "limit": "Limitga yetildi: {{count}}",
+    "name": "Ismi",
+    "role": "Rol",
+    "create": "Yaratish",
+    "roles": {
+      "manager": "Boshqaruvchi",
+      "accountant": "Buxgalter"
+    },
+    "roleHint": {
+      "manager": "Obyektlar, ijarachilar, shartnomalar, toʻlovlar, cheklar va arizalarni koʻradi va yuritadi. Hech narsani oʻchirmaydi.",
+      "accountant": "Toʻlovlar, shartnomalar, obyektlar va hisobotlarni faqat koʻradi; xarajatlarni yuritishi mumkin. Hujjat skanerlarini koʻrmaydi."
+    },
+    "active": "Faol",
+    "disabled": "Oʻchirilgan",
+    "disable": "Oʻchirish",
+    "enable": "Yoqish",
+    "resetPassword": "Yangi parol",
+    "delete": "Oʻchirish",
+    "deleteTitle": "«{{name}}» yordamchisini oʻchirasizmi?",
+    "deleteText": "Kirish darhol yopiladi. Uning harakatlari jurnalda qoladi.",
+    "lastLogin": "kirgan: {{date}}",
+    "neverLogin": "hali kirmagan",
+    "passwordOnce": "Kirish maʼlumotlarini yordamchiga bering. Parol boshqa koʻrsatilmaydi.",
+    "rules": "Yordamchilar profilingiz va parolingizni oʻzgartira, integratsiya va jurnalni koʻra, maʼlumotlarni oʻchira olmaydi. Ularning harakatlari jurnalda belgilanadi. VIP tugasa, yordamchilar kirishi toʻxtatiladi.",
+    "banner": "Siz yordamchi ({{role}}) sifatida kirdingiz — ijara beruvchi maʼlumotlari: {{owner}}",
+    "profileOwner": "Siz ijara beruvchi maʼlumotlari bilan ishlayapsiz: {{owner}}.",
+    "profilePassword": "Parol va kirishni ijara beruvchi oʻzgartiradi: undan yangi parol soʻrang."
+  },
+  "screening": {
+    "action": "Ijarachini tekshirish",
+    "title": "Ijarachini tekshirish",
+    "locked": "Ijarachini tekshirish VIP tarifida mavjud.",
+    "not_linked": "Ijarachi hali shaxsiy kabinetini ulamagan, shuning uchun tarixini tekshirib boʻlmaydi. Unga ijarachi kartochkasidan taklif yuboring.",
+    "not_shared": "Ijarachi toʻlov tarixini koʻrsatishga ruxsat bermagan. Undan kabinetda (profil) «Ishonchlilikni ulashish»ni yoqishni soʻrang.",
+    "verdict": {
+      "reliable": "Ishonchli",
+      "mostly": "Asosan ishonchli",
+      "risky": "Xavf bor",
+      "not_enough": "Maʼlumot kam"
+    },
+    "verdictText": {
+      "reliable": "Oʻz vaqtida toʻlaydi, hozirgi muddati oʻtgan toʻlov yoʻq.",
+      "mostly": "Koʻpincha oʻz vaqtida toʻlaydi, lekin kechikishlar yoki hozir bitta muddati oʻtgan toʻlov bor.",
+      "risky": "Toʻlovni tez-tez kechiktiradi yoki hozir muddati oʻtgan toʻlovlar bor.",
+      "not_enough": "Xulosa chiqarish uchun platformadagi toʻlov tarixi hali kam."
+    },
+    "history": "Tarix: {{months}} oy, shartnomalar: {{leases}}, ijara beruvchilar: {{landlords}}",
+    "onTime": "Oʻz vaqtida ({{days}} kungacha)",
+    "late": "Kechikib",
+    "overdue": "Toʻlanmagan",
+    "privacy": "Faqat platformadagi shaxssiz raqamlar va faqat ijarachi roziligi bilan koʻrsatiladi. Obyekt nomlari va boshqa ijara beruvchilar oshkor etilmaydi. Har bir tekshiruv jurnalga yoziladi.",
+    "consentTitle": "Toʻlov ishonchliligi",
+    "consentOn": "Ruxsat berilgan",
+    "consentOff": "Oʻchirilgan",
+    "consentLabel": "Ishonchlilikni ijara beruvchilar bilan ulashish",
+    "consentText": "Yoqsangiz, VIP tarifidagi ijara beruvchilar shaxssiz xulosani koʻra oladi: toʻlovlaringizdan nechtasi oʻz vaqtida, kechikib va toʻlanmagan. Obyekt nomlari, manzillar va boshqa ijara beruvchilar maʼlumotisiz. Yaxshi tarix ijara haqida tezroq kelishishga yordam beradi. Istalgan vaqtda oʻchirishingiz mumkin."
+  },
+  "tenantPerks": {
+    "titlePrime": "Sizning ijara beruvchingiz — Prime",
+    "titleVip": "Sizning ijara beruvchingiz — VIP",
+    "hint": "Kengaytirilgan tarifdagi ijara beruvchi sizga koʻproq beradi:",
+    "perks": {
+      "receipt": {
+        "title": "Ijara beruvchi blankasi bilan kvitansiyalar",
+        "text": "Toʻlov kvitansiyasida — ijara beruvchining nomi, rekvizitlari va logotipi"
+      },
+      "support": {
+        "title": "Ustuvor qoʻllab-quvvatlash",
+        "text": "Platforma yordam chatidagi murojaatlaringiz birinchi navbatda koʻriladi"
+      },
+      "repairs48": {
+        "title": "Arizalar nazorati",
+        "text": "Ijara beruvchi taʼmirlash arizasiga 48 soat ichida javob bermasa, unga eslatamiz"
+      },
+      "repairs24": {
+        "title": "Arizalar tezkor nazorati",
+        "text": "Ijara beruvchi taʼmirlash arizasiga 24 soat ichida javob bermasa, unga eslatamiz"
+      },
+      "sms": {
+        "title": "Eslatmalarning SMS nusxasi",
+        "text": "Toʻlov eslatmalari ham Telegramga, ham SMS bilan keladi — muddatni oʻtkazib yubormaysiz"
+      },
+      "brand": {
+        "title": "Ijara beruvchi brendidagi kabinet",
+        "text": "Kabinet sarlavhasida ijara beruvchingizning nomi va logotipi"
+      }
+    },
+    "ok": "Tushunarli"
   }
 }

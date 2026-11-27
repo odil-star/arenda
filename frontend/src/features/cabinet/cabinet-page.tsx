@@ -4,27 +4,30 @@ import { useState, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { Avatar } from "@/components/common/avatar";
-import { Brand } from "@/components/layout/brand";
 import { GlassIndicator } from "@/components/layout/glass-indicator";
 import { useGlassDrag } from "@/components/layout/use-glass-drag";
-import { DocIcon, HomeIcon, UserIcon, WalletIcon, type TabIconProps } from "@/components/layout/nav-icons";
+import { DocIcon, HomeIcon, ToolIcon, UserIcon, WalletIcon, type TabIconProps } from "@/components/layout/nav-icons";
 import { useTenantLeases, useTenantMe, useTenantPayments } from "@/api/portal";
 import { useSupportUnread } from "@/api/support";
 import { MediaNotifications } from "@/features/media/tenant-media";
 import { cn } from "@/lib/utils";
+import { LandlordPerksModal } from "./landlord-perks";
+import { TenantBrand } from "./tenant-brand";
 import { groupPayments } from "./cabinet-logic";
 import { ContractTab } from "./contract-tab";
 import { HomeTab } from "./home-tab";
 import { PaymentsTab } from "./payments-tab";
 import { OnboardingTour, useAutoTour } from "@/components/common/onboarding-tour";
 import { ProfileTab } from "./profile-tab";
+import { ServicesTab } from "./services-tab";
 
-type Tab = "home" | "payments" | "contract" | "profile";
+type Tab = "home" | "payments" | "contract" | "services" | "profile";
 
 const TABS: { id: Tab; icon: ComponentType<TabIconProps> }[] = [
   { id: "home", icon: HomeIcon },
   { id: "payments", icon: WalletIcon },
   { id: "contract", icon: DocIcon },
+  { id: "services", icon: ToolIcon },
   { id: "profile", icon: UserIcon },
 ];
 
@@ -62,7 +65,7 @@ export function CabinetPage() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col gap-5 px-4 pb-32">
       <header className="flex h-14 items-center justify-between">
-        <Brand variant="house" />
+        <TenantBrand me={me.data} />
         <div className="flex items-center gap-1">
         <Link
           to="/cabinet/support"
@@ -103,8 +106,11 @@ export function CabinetPage() {
         {tab === "home" && <HomeTab payments={payments.data} leases={leases.data} />}
         {tab === "payments" && <PaymentsTab all={payments.data} leases={leases.data} />}
         {tab === "contract" && <ContractTab leases={leases.data} />}
+        {tab === "services" && <ServicesTab leases={leases.data} />}
         {tab === "profile" && <ProfileTab me={me.data} name={name} onTour={() => setTourRequested(true)} />}
       </main>
+
+      <LandlordPerksModal suspended={tourOpen} />
 
       {tourOpen && (
         <OnboardingTour
@@ -119,7 +125,7 @@ export function CabinetPage() {
       )}
 
       <nav aria-label={t("cabinet.nav")} className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <ul ref={drag.ref} {...drag.handlers} style={{ touchAction: "none" }} className="liquid-glass pointer-events-auto relative mx-auto grid select-none max-w-md grid-cols-4 rounded-[1.75rem] p-1.5">
+        <ul ref={drag.ref} {...drag.handlers} style={{ touchAction: "none" }} className="liquid-glass pointer-events-auto relative mx-auto grid select-none max-w-lg grid-cols-5 rounded-[1.75rem] p-1.5">
           <GlassIndicator index={drag.pos ?? tabIndex} count={TABS.length} dragging={drag.pos !== null} className="rounded-3xl" />
           {TABS.map(({ id, icon: Icon }, i) => {
             const active = shown === i;

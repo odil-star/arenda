@@ -15,6 +15,7 @@ import { parseInventory } from "@/features/leases/inventory-editor";
 import { useFormat } from "@/lib/format";
 import { useLeaseChoice } from "./cabinet-logic";
 import { EMPTY, LeasePicker, Section } from "./cabinet-ui";
+import { HouseRules, LandlordContact, LeaseRequestSection } from "./lease-extras";
 
 function LinkRow({ to, icon, label, count }: { to: string; icon: ReactNode; label: string; count?: number }) {
   return (
@@ -120,6 +121,12 @@ export function LeaseTerms({ lease: l }: { lease: TenantLease }) {
           </ul>
         </Section>
       )}
+
+      <HouseRules lease={l} />
+
+      <LandlordContact lease={l} />
+
+      <LeaseRequestSection lease={l} />
 
       <nav aria-label={t("cabinet.details")} className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
         <LinkRow to={`/cabinet?tab=payments&lease=${l.id}`} icon={<Wallet />} label={t("cabinet.openPayments")} />

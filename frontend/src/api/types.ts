@@ -42,6 +42,19 @@ export interface TokenRefreshResponse {
 }
 
 /** GET /api/me/ */
+export type Tier = "free" | "prime" | "vip";
+
+/** Тариф арендодателя; без подписки или после окончания срока — free. */
+export interface Subscription {
+  tier: Tier;
+  /** название назначенного тарифа; null — подписки нет */
+  name: string | null;
+  paid_until: string | null;
+  expired: boolean;
+  /** VIP: персональный менеджер (назначает админ) */
+  manager: { name: string; contact: string } | null;
+}
+
 export interface Me {
   id: number;
   email: string;
@@ -57,6 +70,9 @@ export interface Me {
   is_admin?: boolean;
   /** admin — полный доступ, support — только просмотр, null/нет — обычный арендодатель */
   admin_role?: "admin" | "support" | null;
+  subscription?: Subscription;
+  /** вошёл помощник владельца (VIP): роль и чьи данные открыты */
+  assistant?: { role: "accountant" | "manager"; owner_name: string };
 }
 
 // ---------- Dashboard ----------
@@ -109,6 +125,8 @@ export interface Property {
   renovation: Renovation | "";
   furniture: Furniture | "";
   amenities: Amenity[];
+  /** правила дома и полезная информация для жильцов */
+  house_rules: string;
   /** точка на карте (строки с 6 знаками) */
   latitude: string | null;
   longitude: string | null;
@@ -119,7 +137,7 @@ export type PropertyInput = Pick<
   Property,
   "name" | "address" | "kind" | "area_m2" | "is_under_repair" | "notes" | "is_listed" | "listing_price" | "listing_description" | "rooms" | "contact_phone" | "has_telegram"
 > &
-  Partial<Pick<Property, "floor" | "floors_total" | "renovation" | "furniture" | "amenities" | "latitude" | "longitude">>;
+  Partial<Pick<Property, "house_rules" | "floor" | "floors_total" | "renovation" | "furniture" | "amenities" | "latitude" | "longitude">>;
 
 export interface PropertyListParams {
   page?: number;
@@ -160,6 +178,8 @@ export interface PropertyInvite {
 export interface LinkCode {
   code: string;
   expires_at: ISODateTime;
+  /** t.me/<бот>?start=<код> — по ссылке бот привязывает аккаунт сам; null, если имя бота неизвестно */
+  bot_url?: string | null;
 }
 
 // ---------- Leases ----------

@@ -1,4 +1,5 @@
-import { Bell, GraduationCap, KeyRound, Languages, LogOut, Palette, Send, UserRound } from "lucide-react";
+import { Bell, GraduationCap, KeyRound, Languages, LogOut, Palette, Send, ShieldCheck, UserRound } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -68,6 +69,9 @@ export function ProfileTab({ me, name, onTour }: { me: TenantMe | undefined; nam
         <Disclosure icon={<Send />} title={t("profile.telegramTitle")} value={t(me.telegram_linked ? "cabinet.telegramOn" : "cabinet.telegramOff")}>
           <TenantTelegram linked={me.telegram_linked} />
         </Disclosure>
+        <Disclosure icon={<ShieldCheck />} title={t("screening.consentTitle")} value={t(me.share_reliability ? "screening.consentOn" : "screening.consentOff")}>
+          <ReliabilityConsent enabled={!!me.share_reliability} />
+        </Disclosure>
         <Disclosure icon={<Bell />} title={t("pwa.title")}>
           <DeviceSettings />
         </Disclosure>
@@ -116,13 +120,38 @@ export function ProfileTab({ me, name, onTour }: { me: TenantMe | undefined; nam
   );
 }
 
+/** Согласие жильца на «проверку жильца»: по умолчанию выключено, отзывается в любой момент. */
+function ReliabilityConsent({ enabled }: { enabled: boolean }) {
+  const { t } = useTranslation();
+  const update = useUpdateTenantProfile();
+  const toggle = async () => {
+    try {
+      await update.mutateAsync({ share_reliability: !enabled });
+      toast.success(t("cabinet.saved"));
+    } catch (error) {
+      toast.error(serverMessages(error)[0] ?? t(`errors.${errorKind(error)}.description`));
+    }
+  };
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">{t("screening.consentText")}</p>
+      <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium">
+        <input type="checkbox" className="size-5 accent-[var(--primary)]" checked={enabled} disabled={update.isPending} onChange={() => void toggle()} />
+        {t("screening.consentLabel")}
+      </label>
+    </div>
+  );
+}
+
 function TenantTelegram({ linked }: { linked: boolean }) {
+  const qc = useQueryClient();
   const code = useTenantTelegramCode();
   const unlink = useTenantTelegramUnlink();
   return (
     <TelegramCard
       bare
       linked={linked}
+      refresh={() => qc.invalidateQueries({ queryKey: ["tenant", "me"] })}
       requestCode={() => code.mutateAsync()}
       unlink={() => unlink.mutateAsync()}
       busy={unlink.isPending}

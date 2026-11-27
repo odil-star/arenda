@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { leasesApi, propertiesApi, tenantsApi, useMe } from "@/api/hooks";
+import { usePendingRequestsCount } from "@/api/requests";
 import { useSupportUnread } from "@/api/support";
 import { OnboardingTour, useAutoTour } from "@/components/common/onboarding-tour";
 import { cn } from "@/lib/utils";
@@ -74,8 +75,10 @@ function SidebarLink({ item, collapsed, badge = 0 }: { item: NavItem; collapsed:
 function Sidebar() {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(readCollapsed);
-  const { isAdmin, role, isPending } = useCurrentUser();
-  const supportUnread = useSupportUnread(!isPending && role === "landlord" && !isAdmin).data ?? 0; // только когда профиль загружен и это точно не админ
+  const { isAdmin, isAssistant, role, isPending } = useCurrentUser();
+  const owner = !isPending && role === "landlord" && !isAdmin && !isAssistant; // помощнику чат и счётчики владельца недоступны
+  const requestsPending = usePendingRequestsCount(owner);
+  const supportUnread = useSupportUnread(owner).data ?? 0; // только когда профиль загружен и это точно не админ
 
   const toggle = () => {
     setCollapsed((c) => {
@@ -149,9 +152,9 @@ function Sidebar() {
             </p>
             {collapsed && <div className="mx-2 my-3 h-px bg-border" aria-hidden />}
             <ul className="space-y-0.5">
-              {NAV_SECONDARY.map((item) => (
+              {NAV_SECONDARY.filter((item) => !(isAssistant && item.to === "/support")).map((item) => (
                 <li key={item.to}>
-                  <SidebarLink item={item} collapsed={collapsed} badge={item.to === "/support" ? supportUnread : 0} />
+                  <SidebarLink item={item} collapsed={collapsed} badge={item.to === "/support" ? supportUnread : item.to === "/requests" ? requestsPending : 0} />
                 </li>
               ))}
             </ul>
@@ -221,9 +224,9 @@ function BottomNav() {
 
 function SupportButton() {
   const { t } = useTranslation();
-  const { isAdmin, role, isPending } = useCurrentUser();
-  const unread = useSupportUnread(!isPending && role === "landlord" && !isAdmin).data ?? 0; // только когда профиль загружен и это точно не админ
-  if (role !== "landlord" || isAdmin) return null;
+  const { isAdmin, isAssistant, role, isPending } = useCurrentUser();
+  const unread = useSupportUnread(!isPending && role === "landlord" && !isAdmin && !isAssistant).data ?? 0; // только когда профиль загружен и это точно не админ
+  if (role !== "landlord" || isAdmin || isAssistant) return null;
   return (
     <Link
       to="/support"
@@ -234,6 +237,19 @@ function SupportButton() {
       <Headset className="size-5" aria-hidden />
       <CountBadge count={unread} dot />
     </Link>
+  );
+}
+
+/** Помощник видит, чьи данные открыты и что ему можно: бухгалтер — просмотр и расходы, управляющий — без удаления. */
+function AssistantBanner() {
+  const { t } = useTranslation();
+  const me = useMe();
+  const a = me.data?.assistant;
+  if (!a) return null;
+  return (
+    <div className="border-b border-info/30 bg-info-soft px-4 py-2 text-sm text-info sm:px-6">
+      {t("assistants.banner", { owner: a.owner_name, role: t(`assistants.roles.${a.role}`) })}
+    </div>
   );
 }
 
@@ -262,9 +278,9 @@ function useFullBleed() {
  * Шаги, которые он уже сделал сам (есть объект, жилец, договор), не показываем.
  */
 function LandlordTour() {
-  const { role, isAdmin } = useCurrentUser();
-  const enabled = role === "landlord" && !isAdmin;
-  const me = useMe(enabled);
+  const { role, isAdmin, isAssistant } = useCurrentUser();
+  const enabled = role === "landlord" && !isAdmin && !isAssistant;
+  const me = useMe(role === "landlord" && !isAdmin);
   const properties = propertiesApi.useList({ page_size: 1 }, { enabled });
   const tenants = tenantsApi.useList({ page_size: 1 }, { enabled });
   const leases = leasesApi.useList({ page_size: 1 }, { enabled });
@@ -298,6 +314,7 @@ export function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="sticky top-0 z-30">
           <ImpersonationBanner />
+          <AssistantBanner />
           <TopBar />
         </div>
         {fullBleed ? (

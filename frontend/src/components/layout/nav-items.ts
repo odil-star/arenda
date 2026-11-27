@@ -1,13 +1,13 @@
 import type { ComponentType } from "react";
 import { HomeIcon, BuildingIcon, WalletIcon, PeopleIcon, type TabIconProps } from "./nav-icons";
 import {
-  Activity, Building2, Globe, CreditCard, FileText, Headset, LayoutDashboard, Megaphone, Receipt, ScrollText, Send, ShieldCheck, UserRound,
+  Activity, Building2, ClipboardList, Globe, CreditCard, FileText, Headset, LayoutDashboard, Megaphone, Receipt, ScrollText, Send, ShieldCheck, UserRound,
   Users, Wallet, Webhook, type LucideIcon,
 } from "lucide-react";
 
 export interface NavItem {
   to: string;
-  labelKey: "nav.dashboard" | "nav.properties" | "nav.tenants" | "nav.leases" | "nav.payments" | "nav.receipts" | "nav.admin" | "nav.profile" | "nav.support" | "nav.ads";
+  labelKey: "nav.dashboard" | "nav.properties" | "nav.tenants" | "nav.leases" | "nav.payments" | "nav.receipts" | "nav.admin" | "nav.profile" | "nav.support" | "nav.ads" | "nav.requests";
   icon: LucideIcon;
   /** контурная/залитая иконка для нижней навигации */
   tabIcon?: ComponentType<TabIconProps>;
@@ -28,6 +28,7 @@ export const NAV_PRIMARY: readonly NavItem[] = [
 export const NAV_SECONDARY: readonly NavItem[] = [
   { to: "/ads", labelKey: "nav.ads", icon: Globe },
   { to: "/leases", labelKey: "nav.leases", icon: FileText },
+  { to: "/requests", labelKey: "nav.requests", icon: ClipboardList },
   { to: "/receipts", labelKey: "nav.receipts", icon: Receipt },
   { to: "/support", labelKey: "nav.support", icon: Headset },
 ];
@@ -47,6 +48,7 @@ export const ADMIN_SECTIONS = [
   { tab: "announcements", icon: Megaphone, group: "system" },
   { tab: "messages", icon: Send, group: "system", superOnly: true },
   { tab: "admins", icon: ShieldCheck, group: "system", superOnly: true },
+  { tab: "profile", icon: UserRound, group: "account" },
 ] as const;
 
 /** Разделы, недоступные роли «поддержка» (только просмотр). */
