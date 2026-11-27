@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { ThemedToaster } from "@/components/layout/themed-toaster";
 import { AuthProvider } from "@/features/auth/auth-provider";
+import { bootstrapTelegramMiniApp } from "@/lib/telegram";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { router } from "@/routes";
 
@@ -25,18 +26,23 @@ const queryClient = new QueryClient({
   },
 });
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <RouterProvider router={router} />
-          <ThemedToaster />
-        </AuthProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
-  </StrictMode>,
-);
+// В Telegram входим по подписи до первой отрисовки; вне Telegram это мгновенный no-op.
+void bootstrapTelegramMiniApp()
+  .catch(() => undefined)
+  .then(() =>
+    createRoot(document.getElementById("root")!).render(
+      <StrictMode>
+        <ThemeProvider>
+          <QueryClientProvider client={queryClient}>
+            <AuthProvider>
+              <RouterProvider router={router} />
+              <ThemedToaster />
+            </AuthProvider>
+          </QueryClientProvider>
+        </ThemeProvider>
+      </StrictMode>,
+    ),
+  );
 
 // PWA: service worker только в продакшен-сборке (в dev он мешает горячей перезагрузке)
 if (import.meta.env.PROD && "serviceWorker" in navigator) {

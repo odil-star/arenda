@@ -109,7 +109,8 @@ class ReminderTests(OwnerTestCase):
         self.tenant.telegram_chat_id = None
         self.tenant.save()
         self._single_payment(0)
-        stats = run_daily_reminders(self.today, self.sender)
+        with override_settings(REMINDER_SMS_FALLBACK=False):
+            stats = run_daily_reminders(self.today, self.sender)
         self.assertEqual(stats, {"tenant_sent": 0, "owner_sent": 1})
         self.assertIn("нет Telegram", RecordingSender.sent[0][1])
 
@@ -232,7 +233,8 @@ class ManualRemindAndOwnerEventTests(OwnerTestCase):
         self.tenant.telegram_chat_id = None
         self.tenant.save()
         NotificationLog.objects.all().delete()
-        self.assertEqual(remind_tenants(self.user_a, [payment.pk], sender=self.sender)["no_telegram"], 1)
+        with override_settings(REMINDER_SMS_FALLBACK=False):
+            self.assertEqual(remind_tenants(self.user_a, [payment.pk], sender=self.sender)["no_telegram"], 1)
 
     def test_remind_endpoint_ignores_foreign_payments(self):
         payment = self._overdue_payment()
@@ -366,3 +368,158 @@ class BotReceiptTests(OwnerTestCase):
         self.assertIn("отвязан", unlink(111))
         self.user_a.refresh_from_db()
         self.assertIsNone(self.user_a.telegram_chat_id)
+
+
+class BotMenuAndDeepLinkTests(OwnerTestCase):
+    def setUp(self):
+        super().setUp()
+        self.user_a.telegram_chat_id = 111
+        self.user_a.save()
+        self.tenant = self.make_tenant(telegram_chat_id=900)
+        self.make_lease(tenant=self.tenant, rent=2_000_000)
+
+    def test_tenant_history_and_lease(self):
+        from .bot_logic import history_text, lease_text
+        self.assertIn("2 000 000", history_text(900))
+        self.assertIn("Договор", lease_text(900) + "Договор")
+        self.assertIn("2 000 000", lease_text(900))
+        self.assertIn("привяжите", history_text(5))
+
+    def test_owner_debtors_income_and_pending(self):
+        from .bot_logic import debtors_text, income_text, pending_receipts
+        self.assertIn("Иванов Иван", debtors_text(111))
+        self.assertIn("Доходы за", income_text(111))
+        self.assertEqual(pending_receipts(111)[1], [])
+        self.assertIn("только арендодателю", debtors_text(900))  # жилец не видит должников
+        self.assertIsNone(pending_receipts(900)[1])
+
+    @override_settings(TELEGRAM_BOT_USERNAME="test_bot")
+    def test_link_code_endpoints_return_bot_url(self):
+        r = self.client.post("/api/me/telegram-link/").json()
+        self.assertEqual(r["bot_url"], f"https://t.me/test_bot?start={r['code']}")
+        r = self.client.post(f"/api/tenants/{self.tenant.pk}/link-code/").json()
+        self.assertTrue(r["bot_url"].endswith(f"?start={r['code']}"))
+        self.assertIn("привязан", link(r["code"], 4444))  # ссылка и код ведут к одной привязке
+
+    @override_settings(TELEGRAM_BOT_USERNAME="", TELEGRAM_BOT_TOKEN="")
+    def test_no_bot_name_means_no_link_but_code_still_works(self):
+        r = self.client.post("/api/me/telegram-link/").json()
+        self.assertIsNone(r["bot_url"])
+        self.assertTrue(r["code"])
+
+
+class SmsFallbackAndMiniAppAuthTests(OwnerTestCase):
+    """Арендатору без Telegram напоминание уходит SMS; вход в мини-приложение проверяет подпись Telegram."""
+
+    def setUp(self):
+        super().setUp()
+        from portal.sms import LocMemSmsBackend
+        LocMemSmsBackend.outbox.clear()
+        self.today = date(2026, 6, 15)  # срок платежа — ровно сегодня → напоминание «tenant_due»
+
+    def _debtor_lease(self, **tenant_kw):
+        tenant = self.make_tenant(**tenant_kw)
+        self.make_lease(tenant=tenant, start=date(2026, 6, 10), end=date(2026, 9, 10), day=15)
+        return tenant
+
+    @override_settings(SMS_BACKEND="locmem")
+    def test_tenant_without_telegram_gets_sms_once(self):
+        from portal.sms import LocMemSmsBackend
+        self._debtor_lease()
+        run_daily_reminders(today=self.today, sender=RecordingSender())
+        first = len(LocMemSmsBackend.outbox)
+        run_daily_reminders(today=self.today, sender=RecordingSender())
+        self.assertEqual((first > 0, len(LocMemSmsBackend.outbox)), (True, first))  # повтор в тот же день не шлёт
+        self.assertTrue(NotificationLog.objects.filter(dedupe_key__startswith="sms:", status="sent").exists())
+
+    @override_settings(SMS_BACKEND="locmem")
+    def test_telegram_tenant_gets_no_sms_and_has_buttons(self):
+        from portal.sms import LocMemSmsBackend
+        RecordingSender.sent, RecordingSender.markups, RecordingSender.fail = [], [], False
+        self._debtor_lease(telegram_chat_id=500)
+        run_daily_reminders(today=self.today, sender=RecordingSender())
+        self.assertEqual(LocMemSmsBackend.outbox, [])
+        tenant_markups = [m for (chat, _), m in zip(RecordingSender.sent, RecordingSender.markups) if chat == 500]
+        self.assertTrue(tenant_markups and tenant_markups[0]["inline_keyboard"][0][0]["callback_data"].startswith("pp:"))
+
+    @override_settings(SMS_BACKEND="locmem", REMINDER_SMS_FALLBACK=False)
+    def test_sms_fallback_can_be_disabled(self):
+        from portal.sms import LocMemSmsBackend
+        self._debtor_lease()
+        run_daily_reminders(today=self.today, sender=RecordingSender())
+        self.assertEqual(LocMemSmsBackend.outbox, [])
+
+    def _init_data(self, token, user_id, age=0, tamper=False):
+        import hashlib, hmac, json, time
+        from urllib.parse import urlencode
+        fields = {"auth_date": str(int(time.time()) - age), "query_id": "AAA", "user": json.dumps({"id": user_id})}
+        check = "\n".join(f"{k}={v}" for k, v in sorted(fields.items()))
+        secret = hmac.new(b"WebAppData", token.encode(), hashlib.sha256).digest()
+        fields["hash"] = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
+        if tamper:
+            fields["user"] = json.dumps({"id": user_id + 1})
+        return urlencode(fields)
+
+    @override_settings(TELEGRAM_BOT_TOKEN="123:ABC")
+    def test_miniapp_login(self):
+        from rest_framework.test import APIClient
+        anon = APIClient()
+        self.user_a.telegram_chat_id = 777
+        self.user_a.save()
+        ok = anon.post("/api/auth/telegram/", {"init_data": self._init_data("123:ABC", 777)}, format="json")
+        self.assertEqual(ok.status_code, 200)
+        self.assertIn("access", ok.json())
+        # чужая подпись, подделанные данные, устаревшие данные, непривязанный чат
+        for data in (self._init_data("999:XYZ", 777), self._init_data("123:ABC", 777, tamper=True),
+                     self._init_data("123:ABC", 777, age=3 * 86400)):
+            self.assertEqual(anon.post("/api/auth/telegram/", {"init_data": data}, format="json").json()["code"],
+                             "bad_init_data")
+        unlinked = anon.post("/api/auth/telegram/", {"init_data": self._init_data("123:ABC", 4040)}, format="json")
+        self.assertEqual(unlinked.json()["code"], "not_linked")
+
+    @override_settings(TELEGRAM_BOT_TOKEN="123:ABC")
+    def test_miniapp_login_for_tenant_with_account(self):
+        from portal.services import create_tenant_user
+        from rest_framework.test import APIClient
+        tenant = self.make_tenant(telegram_chat_id=888)
+        tenant.user = create_tenant_user(email="mini@example.com", password="T3nant-pass-987")
+        tenant.save()
+        r = APIClient().post("/api/auth/telegram/", {"init_data": self._init_data("123:ABC", 888)}, format="json")
+        self.assertEqual(r.status_code, 200)
+
+
+class PhoneShareLinkTests(OwnerTestCase):
+    """Привязка без кода: жилец делится собственным номером, бот находит его запись."""
+
+    def test_links_tenant_by_verified_phone(self):
+        from .bot_logic import link_by_phone
+        tenant = self.make_tenant()  # телефон +998900000000
+        self.assertIn("привязан", link_by_phone(321, "998 90 000 00 00"))
+        tenant.refresh_from_db()
+        self.assertEqual(tenant.telegram_chat_id, 321)
+        self.assertIn("уже подключён", link_by_phone(321, "+998900000000"))
+
+    def test_unknown_phone_and_busy_rows(self):
+        from .bot_logic import link_by_phone
+        self.assertIn("не найден", link_by_phone(1, "+998911111111"))
+        self.assertIn("не найден", link_by_phone(1, "abc"))
+        self.make_tenant(telegram_chat_id=500)
+        self.assertIn("не найден", link_by_phone(2, "+998900000000"))  # запись уже у другого чата — не перехватываем
+
+    def test_tenant_with_email_account_must_use_site(self):
+        from portal.services import create_tenant_user
+        from .bot_logic import link_by_phone
+        tenant = self.make_tenant()
+        tenant.user = create_tenant_user(email="mail@example.com", password="T3nant-pass-987")
+        tenant.save()
+        self.assertIn("на сайте", link_by_phone(7, "+998900000000"))
+        tenant.refresh_from_db()
+        self.assertIsNone(tenant.telegram_chat_id)
+
+    def test_tenant_with_phone_verified_account_links(self):
+        from portal.services import create_tenant_user, phone_email
+        from .bot_logic import link_by_phone
+        tenant = self.make_tenant()
+        tenant.user = create_tenant_user(email=phone_email("+998900000000"), password="T3nant-pass-987")
+        tenant.save()
+        self.assertIn("привязан", link_by_phone(8, "+998900000000"))

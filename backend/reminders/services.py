@@ -8,6 +8,7 @@ from django.db import IntegrityError
 from django.db.models import F
 from django.utils import timezone
 
+from core.tiers import has_tier, owner_ids_with_tier
 from leasing.models import Lease, Payment
 
 from portal.push import send_push
@@ -63,6 +64,33 @@ def deliver(sender, *, owner, kind, dedupe_key, chat_id, text, payment=None, ten
     return True
 
 
+class SmsSender:
+    """Запасной канал: тот же deliver(), но сообщение уходит SMS на телефон арендатора."""
+
+    def __init__(self, phone):
+        self.phone = phone
+
+    def send(self, chat_id, text, reply_markup=None):
+        from portal.sms import get_sms_backend
+        get_sms_backend().send(self.phone, text)
+
+
+def sms_fallback(*, owner, kind, dedupe_key, tenant, text, payment=None):
+    """Арендатор без Telegram получает напоминание SMS (если включено и есть телефон). chat_id=0 — маркер SMS."""
+    if not settings.REMINDER_SMS_FALLBACK or not tenant.phone:
+        return False
+    return deliver(SmsSender(tenant.phone), owner=owner, kind=kind, payment=payment, tenant=tenant,
+                   dedupe_key=f"sms:{dedupe_key}"[:100], chat_id=0, text=text)
+
+
+def tenant_markup(payment, lang):
+    """Кнопки под напоминанием: отправить чек прямо в чате и открыть мини-приложение (только по HTTPS)."""
+    rows = [[{"text": t(lang, "btn_paid"), "callback_data": f"pp:{payment.pk}"}]]
+    if settings.FRONTEND_URL.startswith("https://"):
+        rows.append([{"text": t(lang, "btn_open_app"), "web_app": {"url": f"{settings.FRONTEND_URL}/cabinet"}}])
+    return {"inline_keyboard": rows}
+
+
 def run_daily_reminders(today=None, sender=None):
     today = today or timezone.localdate()
     sender = sender or get_sender()
@@ -75,6 +103,7 @@ def run_daily_reminders(today=None, sender=None):
         .order_by("owner_id", "due_date")
     )
     stats = {"tenant_sent": 0, "owner_sent": 0}
+    prime_owners = owner_ids_with_tier("prime")  # Prime: SMS-дубль даже тем, у кого есть Telegram
     by_owner = defaultdict(list)
     for payment in payments:
         by_owner[payment.owner].append(payment)
@@ -91,13 +120,20 @@ def run_daily_reminders(today=None, sender=None):
             tenant.user, payment.lease.property.name, text, url="/cabinet",
             dedupe_key=f"t:{payment.pk}:{kind}:{today.isoformat()}",
         )
+        key = f"t:{payment.pk}:{kind}:{today.isoformat()}"
         if tenant.telegram_chat_id is None:
+            if sms_fallback(owner=payment.owner, kind=kind, dedupe_key=key, tenant=tenant, text=text, payment=payment):
+                stats["tenant_sms"] = stats.get("tenant_sms", 0) + 1
             continue
         if deliver(
-            sender, owner=payment.owner, kind=kind, payment=payment, tenant=tenant,
-            dedupe_key=f"t:{payment.pk}:{kind}:{today.isoformat()}", chat_id=tenant.telegram_chat_id, text=text,
+            sender, owner=payment.owner, kind=kind, payment=payment, tenant=tenant, dedupe_key=key,
+            chat_id=tenant.telegram_chat_id, text=text, reply_markup=tenant_markup(payment, tenant.language),
         ):
             stats["tenant_sent"] += 1
+        if payment.owner_id in prime_owners and sms_fallback(
+            owner=payment.owner, kind=kind, dedupe_key=key, tenant=tenant, text=text, payment=payment
+        ):
+            stats["tenant_sms"] = stats.get("tenant_sms", 0) + 1
     for owner, items in by_owner.items():
         if owner.telegram_chat_id is None:
             continue
@@ -153,6 +189,19 @@ def notify_owner_receipt(receipt, sender=None):
         return False
 
 
+def notify_owner_event(owner, *, title, text, url, key):
+    """Арендодателю: push и (если привязан) Telegram о событии жильца. Сбои канала не пробрасываются."""
+    send_push(owner, title, text, url=url, dedupe_key=key)
+    if owner.telegram_chat_id is None:
+        return False
+    try:
+        return deliver(get_sender(), owner=owner, kind=NotificationLog.Kind.OWNER_EVENT, dedupe_key=key,
+                       chat_id=owner.telegram_chat_id, text=text)
+    except Exception:  # noqa: BLE001
+        logger.exception("Не удалось уведомить владельца: %s", key)
+        return False
+
+
 def remind_tenants(owner, payment_ids, today=None, sender=None):
     """Ручное напоминание должникам. Не чаще одного раза в день на платёж."""
     today = today or timezone.localdate()
@@ -161,6 +210,7 @@ def remind_tenants(owner, payment_ids, today=None, sender=None):
         owner=owner, pk__in=payment_ids, amount_paid__lt=F("amount_due")
     ).select_related("lease__property", "lease__tenant")
     stats = {"sent": 0, "no_telegram": 0, "already": 0, "failed": 0}
+    prime = has_tier(owner, "prime")  # Prime: SMS-дубль к Telegram
     for payment in payments:
         tenant = payment.lease.tenant
         text = t(tenant.language, "tenant_manual", property=payment.lease.property.name,
@@ -168,7 +218,9 @@ def remind_tenants(owner, payment_ids, today=None, sender=None):
         key = f"tm:{payment.pk}:{today.isoformat()}"
         pushed = send_push(tenant.user, payment.lease.property.name, text, url="/cabinet", dedupe_key=key)
         if tenant.telegram_chat_id is None:
-            if pushed:
+            texted = sms_fallback(owner=owner, kind=NotificationLog.Kind.TENANT_MANUAL, dedupe_key=key,
+                                  tenant=tenant, text=text, payment=payment)
+            if pushed or texted:
                 stats["sent"] += 1
             else:
                 stats["no_telegram"] += 1
@@ -176,6 +228,9 @@ def remind_tenants(owner, payment_ids, today=None, sender=None):
         if deliver(sender, owner=owner, kind=NotificationLog.Kind.TENANT_MANUAL, payment=payment, tenant=tenant,
                    dedupe_key=key, chat_id=tenant.telegram_chat_id, text=text):
             stats["sent"] += 1
+            if prime:
+                sms_fallback(owner=owner, kind=NotificationLog.Kind.TENANT_MANUAL, dedupe_key=key, tenant=tenant,
+                             text=text, payment=payment)
         elif NotificationLog.objects.filter(dedupe_key=key, status=NotificationLog.Status.SENT).exists():
             stats["already"] += 1
         else:

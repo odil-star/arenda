@@ -30,10 +30,10 @@ export function TelegramLink({ tenant }: { tenant: Tenant }) {
     }
   };
 
-  const copy = async (code: string) => {
+  const copy = async (value: string, message: "tenants.codeCopied" | "tenants.linkCopied" = "tenants.codeCopied") => {
     try {
-      await navigator.clipboard.writeText(code);
-      toast.success(t("tenants.codeCopied"));
+      await navigator.clipboard.writeText(value);
+      toast.success(t(message));
     } catch {
       toast.error(t("errors.actionFailed"));
     }
@@ -49,7 +49,13 @@ export function TelegramLink({ tenant }: { tenant: Tenant }) {
         </div>
       </div>
       {linkCode.data ? (
-        <div className="flex items-center justify-between gap-3 rounded-md bg-muted px-3 py-2" aria-live="polite">
+        <div className="space-y-2" aria-live="polite">
+        {linkCode.data.bot_url && (
+          <Button size="sm" onClick={() => void copy(linkCode.data!.bot_url!, "tenants.linkCopied")}>
+            <Copy aria-hidden /> {t("tenants.copyLink")}
+          </Button>
+        )}
+        <div className="flex items-center justify-between gap-3 rounded-md bg-muted px-3 py-2">
           <div>
             <p className="font-mono text-lg font-semibold tracking-wider">{linkCode.data.code}</p>
             <p className="text-xs text-muted-foreground">
@@ -59,6 +65,7 @@ export function TelegramLink({ tenant }: { tenant: Tenant }) {
           <Button variant="ghost" size="icon" onClick={() => void copy(linkCode.data.code)} aria-label={t("tenants.copyCode")}>
             <Copy aria-hidden />
           </Button>
+        </div>
         </div>
       ) : (
         <Button variant="secondary" size="sm" loading={linkCode.isPending} onClick={() => void generate()}>

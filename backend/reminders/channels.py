@@ -35,5 +35,30 @@ class TelegramSender:
             raise SendError(f"Нет связи с Telegram: {type(exc).__name__}") from None
 
 
+_username_cache = {}
+
+
+def bot_username():
+    """Имя бота: из TELEGRAM_BOT_USERNAME, иначе один раз спрашиваем у Telegram (getMe) и запоминаем."""
+    if settings.TELEGRAM_BOT_USERNAME:
+        return settings.TELEGRAM_BOT_USERNAME
+    token = settings.TELEGRAM_BOT_TOKEN
+    if not token:
+        return ""
+    if token not in _username_cache:
+        try:
+            with urllib.request.urlopen(f"https://api.telegram.org/bot{token}/getMe", timeout=5) as response:
+                _username_cache[token] = (json.load(response).get("result") or {}).get("username", "")
+        except Exception:  # noqa: BLE001 — без сети просто не даём ссылку, ручной код остаётся
+            return ""
+    return _username_cache[token]
+
+
+def bot_link(code):
+    """Ссылка t.me/<бот>?start=<код>: по ней бот привязывает аккаунт без ввода кода."""
+    username = bot_username()
+    return f"https://t.me/{username}?start={code}" if username and code else None
+
+
 def get_sender():
     return import_string(settings.TELEGRAM_SENDER)()

@@ -179,6 +179,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "reminders.tasks.send_daily_reminders",
         "schedule": crontab(hour=9, minute=0),
     },
+    "monthly-digest": {
+        "task": "reminders.tasks.send_monthly_digest",
+        "schedule": crontab(day_of_month=1, hour=9, minute=30),
+    },
     "end-expired-leases": {
         "task": "leasing.tasks.end_expired_leases",
         "schedule": crontab(hour=0, minute=10),
@@ -205,6 +209,7 @@ TELEGRAM_BOT_USERNAME = env("TELEGRAM_BOT_USERNAME", default="").lstrip("@")  # 
 TELEGRAM_SENDER = "reminders.channels.TelegramSender"
 REMINDER_DAYS_BEFORE = 3
 REMINDER_OVERDUE_EVERY_DAYS = 3
+REMINDER_SMS_FALLBACK = env.bool("REMINDER_SMS_FALLBACK", default=True)  # арендатору без Telegram — SMS
 
 # Web Push (VAPID). Ключи: python manage.py generate_vapid. Пусто — push выключен.
 VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY", default="")
