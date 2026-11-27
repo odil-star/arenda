@@ -3,6 +3,8 @@ from django.utils import timezone
 
 from reminders.messages import money
 
+from .brand import active_brand, logo_data_uri
+
 
 class PdfUnavailable(Exception):
     pass
@@ -15,7 +17,9 @@ def render_contract_html(lease):
     ]
     inventory = [line.strip(" 	-•*") for line in lease.inventory.splitlines()]
     inventory = [line for line in inventory if line]
+    brand = active_brand(lease.owner)
     return render_to_string("leasing/contract.html", {
+        "brand": brand, "brand_logo": logo_data_uri(brand) if brand else "",
         "lease": lease, "owner": lease.owner, "tenant": lease.tenant, "property": lease.property,
         "rent": money(lease.rent_amount), "deposit": money(lease.deposit_amount),
         "payments": payments, "inventory": inventory, "today": timezone.localdate(),

@@ -18,6 +18,8 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from reminders.channels import bot_link
+
 from .models import User
 from .tokens import revoke_user_tokens
 from .serializers import (
@@ -47,6 +49,20 @@ class ThrottledTokenRefreshView(AuthThrottleMixin, TokenRefreshView):
     pass
 
 
+def assistant_profile(link):
+    """Профиль помощника для интерфейса: свои имя и email, роль и тариф владельца. Контакты и паспорт владельца не отдаём."""
+    from core.tiers import tier_info
+
+    user = link.user
+    return {
+        "id": user.pk, "email": user.email, "first_name": user.first_name, "last_name": user.last_name,
+        "phone": "", "passport_data": "", "language": user.language, "payment_details": "",
+        "telegram_linked": False, "role": "landlord", "is_admin": False, "admin_role": None,
+        "tours_seen": ["landlord"], "subscription": tier_info(link.owner), "date_joined": user.date_joined,
+        "assistant": {"role": link.role, "owner_name": link.owner.get_full_name() or "Арендодатель"},
+    }
+
+
 class MeView(generics.RetrieveUpdateAPIView):
     """GET/PATCH /api/me/ — профиль текущего пользователя."""
 
@@ -55,6 +71,12 @@ class MeView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+    def retrieve(self, request, *args, **kwargs):
+        link = getattr(request._request, "assistant", None)
+        if link is not None:  # помощник видит свой профиль, а не данные владельца (request.user — владелец)
+            return Response(assistant_profile(link))
+        return super().retrieve(request, *args, **kwargs)
 
 
 class TourProgressView(APIView):
@@ -90,7 +112,8 @@ class TelegramLinkView(APIView):
         user.telegram_link_code = "O" + secrets.token_hex(4).upper()
         user.telegram_link_expires_at = timezone.now() + timedelta(hours=72)
         user.save(update_fields=["telegram_link_code", "telegram_link_expires_at"])
-        return Response({"code": user.telegram_link_code, "expires_at": user.telegram_link_expires_at})
+        return Response({"code": user.telegram_link_code, "expires_at": user.telegram_link_expires_at,
+                         "bot_url": bot_link(user.telegram_link_code)})
 
     @extend_schema(request=None, responses={204: None})
     def delete(self, request):

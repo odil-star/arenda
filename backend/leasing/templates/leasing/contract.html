@@ -13,9 +13,22 @@
     th, td { border: 1px solid #888; padding: 3pt 6pt; text-align: left; }
     .sign { margin-top: 36pt; width: 100%; }
     .sign td { border: none; width: 50%; vertical-align: top; }
+    .brand { display: flex; align-items: center; gap: 12pt; border-bottom: 1.5pt solid #444; padding-bottom: 8pt; margin-bottom: 14pt; }
+    .brand img { max-height: 22mm; max-width: 45mm; }
+    .brand .name { font-size: 13pt; font-weight: bold; }
+    .brand .req { font-size: 9pt; color: #444; white-space: pre-line; }
   </style>
 </head>
 <body>
+  {% if brand %}
+  <div class="brand">
+    {% if brand_logo %}<img src="{{ brand_logo }}" alt="">{% endif %}
+    <div>
+      {% if brand.company_name %}<div class="name">{{ brand.company_name }}</div>{% endif %}
+      {% if brand.requisites %}<div class="req">{{ brand.requisites }}</div>{% endif %}
+    </div>
+  </div>
+  {% endif %}
   <h1>ДОГОВОР АРЕНДЫ № {{ lease.pk }}</h1>
   <p class="center">{{ today|date:"d.m.Y" }}</p>
 

@@ -20,7 +20,7 @@ class PropertySerializer(serializers.ModelSerializer):
         model = Property
         fields = ("id", "name", "address", "kind", "area_m2", "is_under_repair", "notes",
                   "is_listed", "listing_price", "listing_description", "rooms", "contact_phone", "has_telegram",
-                  "floor", "floors_total", "renovation", "furniture", "amenities", "latitude", "longitude",
+                  "floor", "floors_total", "renovation", "furniture", "amenities", "house_rules", "latitude", "longitude",
                   "created_at", "updated_at")
         read_only_fields = ("id", "created_at", "updated_at")
         extra_kwargs = {
@@ -31,6 +31,7 @@ class PropertySerializer(serializers.ModelSerializer):
             "floor": {"min_value": 0, "max_value": 200},
             "floors_total": {"min_value": 1, "max_value": 200},
             "listing_description": {"max_length": 3000},
+            "house_rules": {"max_length": 3000},
         }
 
     def validate_amenities(self, value):

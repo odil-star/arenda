@@ -9,7 +9,8 @@ from django.db.models.deletion import ProtectedError
 from django_filters import rest_framework as filters
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
+from rest_framework.throttling import UserRateThrottle
 from django.http import HttpResponse
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -18,10 +19,13 @@ from django.utils import timezone
 from core.audit import log_action
 from core.mixins import OwnedQuerysetMixin
 from core.plans import ensure_can_add_property
+from core.tiers import has_tier
 
 from portal import services as portal_services
 
-from . import services
+from reminders.channels import bot_link
+
+from . import screening, services
 from .contract import PdfUnavailable, render_contract_html, render_contract_pdf
 from .models import Lease, Payment, Property, Tenant
 from .serializers import (
@@ -94,6 +98,10 @@ def _active_tenant(prop):
     return lease.tenant
 
 
+class ScreeningThrottle(UserRateThrottle):
+    scope = "screening"
+
+
 class TenantViewSet(OwnedModelViewSet):
     queryset = Tenant.objects.prefetch_related("invites")
     serializer_class = TenantSerializer
@@ -107,7 +115,24 @@ class TenantViewSet(OwnedModelViewSet):
         tenant.link_code = "T" + secrets.token_hex(4).upper()
         tenant.link_code_expires_at = timezone.now() + timedelta(hours=72)
         tenant.save(update_fields=["link_code", "link_code_expires_at", "updated_at"])
-        return Response({"code": tenant.link_code, "expires_at": tenant.link_code_expires_at})
+        return Response({"code": tenant.link_code, "expires_at": tenant.link_code_expires_at,
+                         "bot_url": bot_link(tenant.link_code)})
+
+    @action(detail=True, methods=["get"], throttle_classes=[ScreeningThrottle])
+    def screening(self, request, pk=None):
+        """VIP: платёжная репутация жильца по платформе — только если жилец сам разрешил (см. leasing.screening)."""
+        tenant = self.get_object()
+        if not has_tier(request.user, "vip"):
+            raise PermissionDenied("Проверка жильца доступна на тарифе VIP.")
+        user = tenant.user
+        if user is None:
+            result = {"status": "not_linked"}  # жилец не подключил аккаунт — проверять нечего
+        elif not user.profile.share_reliability:
+            result = {"status": "not_shared"}
+        else:
+            result = {"status": "ok", **screening.reliability(user)}
+        log_action(request.user, "tenant.screening", tenant, actor=request.user, status=result["status"])
+        return Response(result)
 
     @action(detail=True, methods=["post"])
     def invite(self, request, pk=None):

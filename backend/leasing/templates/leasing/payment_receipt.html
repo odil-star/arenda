@@ -13,9 +13,22 @@
     th { width: 45%; background: #f3f3f3; font-weight: normal; }
     .total td, .total th { font-weight: bold; }
     .note { margin-top: 14pt; font-size: 9pt; color: #555; }
+    .brand { display: flex; align-items: center; gap: 10pt; border-bottom: 1.5pt solid #444; padding-bottom: 6pt; margin-bottom: 10pt; }
+    .brand img { max-height: 16mm; max-width: 35mm; }
+    .brand .name { font-size: 12pt; font-weight: bold; }
+    .brand .req { font-size: 8pt; color: #444; white-space: pre-line; }
   </style>
 </head>
 <body>
+  {% if brand %}
+  <div class="brand">
+    {% if brand_logo %}<img src="{{ brand_logo }}" alt="">{% endif %}
+    <div>
+      {% if brand.company_name %}<div class="name">{{ brand.company_name }}</div>{% endif %}
+      {% if brand.requisites %}<div class="req">{{ brand.requisites }}</div>{% endif %}
+    </div>
+  </div>
+  {% endif %}
   <h1>КВИТАНЦИЯ ОБ ОПЛАТЕ № {{ payment.pk }}</h1>
   <p class="center">от {{ today|date:"d.m.Y" }}</p>
   <table>

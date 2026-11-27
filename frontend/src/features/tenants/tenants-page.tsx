@@ -1,5 +1,5 @@
 import { FileSignature, Home, Phone, Plus, Send } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { useCrudDialogs } from "@/components/common/use-crud-dialogs";
 import { tenantsApi, useOccupiedPropertyIds } from "@/api/hooks";
 import type { Lease, Tenant } from "@/api/types";
 import { useUrlState } from "@/lib/hooks";
+import { ScreeningDialog } from "./screening-dialog";
 import { TenantFormDialog } from "./tenant-form-dialog";
 
 function PhoneLink({ phone }: { phone: string }) {
@@ -56,6 +57,7 @@ export function TenantsPage() {
   const { values, page, set } = useUrlState(["search", "new"] as const);
   const query = tenantsApi.useList({ page, search: values.search });
   const crud = useCrudDialogs<Tenant>(tenantsApi.useRemove(), t("tenants.deleted"));
+  const [screened, setScreened] = useState<Tenant | null>(null);
   const occupied = useOccupiedPropertyIds();
 
   // «+ → Добавить арендатора» приходит сюда с ?new=1
@@ -145,7 +147,7 @@ export function TenantsPage() {
             </div>
           </div>
         )}
-        actions={(tn) => <RowActions label={tn.full_name} onEdit={() => crud.openEdit(tn)} onDelete={() => crud.askDelete(tn)} />}
+        actions={(tn) => <RowActions label={tn.full_name} onEdit={() => crud.openEdit(tn)} onDelete={() => crud.askDelete(tn)} onScreen={() => setScreened(tn)} />}
         empty={
           values.search ? (
             <EmptyState illustration="search" title={t("common.nothingFound")} description={t("common.nothingFoundHint")} />
@@ -165,6 +167,7 @@ export function TenantsPage() {
         }
       />
 
+      <ScreeningDialog tenant={screened} onClose={() => setScreened(null)} />
       <TenantFormDialog open={crud.formOpen} onOpenChange={crud.setFormOpen} tenant={crud.editing} />
       <ConfirmDialog
         open={crud.deleting !== null}

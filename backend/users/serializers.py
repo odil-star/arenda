@@ -2,6 +2,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
 from core.permissions import user_role
+from core.tiers import tier_info
 
 from .models import User
 
@@ -29,15 +30,19 @@ class UserSerializer(serializers.ModelSerializer):
     is_admin = serializers.SerializerMethodField()
     admin_role = serializers.SerializerMethodField()
     tours_seen = serializers.SerializerMethodField()
+    subscription = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = (
             "id", "email", "first_name", "last_name", "phone", "passport_data",
             "language", "payment_details", "telegram_linked", "role", "is_admin", "admin_role", "tours_seen",
-            "date_joined",
+            "subscription", "date_joined",
         )
-        read_only_fields = ("id", "email", "telegram_linked", "role", "is_admin", "admin_role", "tours_seen", "date_joined")
+        read_only_fields = ("id", "email", "telegram_linked", "role", "is_admin", "admin_role", "tours_seen", "subscription", "date_joined")
+
+    def get_subscription(self, obj):
+        return tier_info(obj)
 
     def get_tours_seen(self, obj):
         profile = getattr(obj, "profile", None)

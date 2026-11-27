@@ -66,6 +66,8 @@ class UserProfile(models.Model):
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.LANDLORD)
     # Прогресс обучения: {"landlord": {"step": 3, "done": false}}; по нему же видно, где люди бросают обучение.
     tours = models.JSONField(default=dict, blank=True)
+    # Жилец сам разрешает показывать обезличенную платёжную надёжность арендодателям с VIP («проверка жильца»)
+    share_reliability = models.BooleanField(default=False)
 
     @property
     def tours_seen(self):

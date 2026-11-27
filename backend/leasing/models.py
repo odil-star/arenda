@@ -49,6 +49,8 @@ class Property(OwnedModel):
     renovation = models.CharField("Ремонт", max_length=16, choices=Renovation.choices, blank=True)
     furniture = models.CharField("Мебель", max_length=16, choices=Furniture.choices, blank=True)
     amenities = models.JSONField("Что входит", default=list, blank=True)
+    # Правила дома и полезная информация для жильцов (Wi-Fi, парковка, мусор, телефоны служб).
+    house_rules = models.TextField("Правила дома и полезная информация", blank=True)
     # Точка на карте (WGS84). Пусто — объект не показывается на карте в поиске.
     latitude = models.DecimalField("Широта", max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField("Долгота", max_digits=9, decimal_places=6, null=True, blank=True)
@@ -319,3 +321,26 @@ class Document(OwnedModel):
                 condition=Q(kind="document") | Q(property__isnull=False),
             ),
         ]
+
+
+def brand_logo_upload_to(instance, filename):
+    import uuid
+    from pathlib import Path
+
+    return f"brand/{instance.user_id}/{uuid.uuid4().hex}{Path(filename).suffix.lower()}"
+
+
+class ContractBrand(models.Model):
+    """Prime: свой бланк договора — название, реквизиты и логотип в шапке PDF.
+
+    Данные хранятся и после окончания тарифа, но в договор попадают только пока тариф Prime или выше.
+    """
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="contract_brand")
+    company_name = models.CharField("Название", max_length=150, blank=True)
+    requisites = models.TextField("Реквизиты и контакты", max_length=1000, blank=True)
+    logo = models.FileField(upload_to=brand_logo_upload_to, max_length=255, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"brand:{self.user_id}"

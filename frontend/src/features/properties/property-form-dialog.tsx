@@ -25,6 +25,7 @@ const schema = z
     rooms: integerString({ required: false, positive: true }),
     is_under_repair: z.boolean(),
     notes: optionalText(),
+    house_rules: optionalText(3000),
     is_listed: z.boolean(),
     contact_phone: optionalText(32),
     has_telegram: z.boolean(),
@@ -39,7 +40,7 @@ const schema = z
 
 type Values = z.input<typeof schema>;
 const FIELDS = [
-  "name", "address", "kind", "area_m2", "rooms", "is_under_repair", "notes", "is_listed", "contact_phone", "has_telegram", "listing_price", "listing_description",
+  "name", "address", "kind", "area_m2", "rooms", "is_under_repair", "notes", "house_rules", "is_listed", "contact_phone", "has_telegram", "listing_price", "listing_description",
 ] as const;
 
 function toValues(p?: Property | null, listed = false): Values {
@@ -51,6 +52,7 @@ function toValues(p?: Property | null, listed = false): Values {
     rooms: p?.rooms != null ? String(p.rooms) : "",
     is_under_repair: p?.is_under_repair ?? false,
     notes: p?.notes ?? "",
+    house_rules: p?.house_rules ?? "",
     is_listed: p?.is_listed ?? listed,
     contact_phone: p?.contact_phone ?? "",
     has_telegram: p?.has_telegram ?? true,
@@ -162,6 +164,9 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSaved, defa
           </label>
           <FormField label={t("common.notes")} error={errors.notes?.message} optional>
             {(p) => <Textarea {...p} {...form.register("notes")} />}
+          </FormField>
+          <FormField label={t("properties.fields.houseRules")} error={errors.house_rules?.message} hint={t("properties.fields.houseRulesHint")} optional>
+            {(p) => <Textarea {...p} rows={4} placeholder={t("properties.fields.houseRulesPlaceholder")} {...form.register("house_rules")} />}
           </FormField>
 
           <div className="space-y-4 rounded-xl border border-border p-3">

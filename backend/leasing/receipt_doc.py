@@ -3,12 +3,15 @@ from django.utils import timezone
 
 from reminders.messages import money
 
+from .brand import active_brand, logo_data_uri
 from .contract import PdfUnavailable
 
 
 def render_receipt_html(payment):
     lease = payment.lease
+    brand = active_brand(payment.owner, "prime")  # Prime+: шапка квитанции жильца — бланк арендодателя
     return render_to_string("leasing/payment_receipt.html", {
+        "brand": brand, "brand_logo": logo_data_uri(brand) if brand else "",
         "payment": payment, "lease": lease, "owner": payment.owner, "tenant": lease.tenant,
         "property": lease.property, "due": money(payment.amount_due), "paid": money(payment.amount_paid),
         "remaining": money(payment.remaining), "fully_paid": payment.remaining <= 0,
