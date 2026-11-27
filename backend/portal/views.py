@@ -217,7 +217,7 @@ class TenantTelegramLinkView(APIView):
         record = Tenant.objects.filter(user=request.user).order_by("id").first()
         if record is None:
             raise ValidationError({"detail": ["Нет привязанной записи жильца."]})
-        record.link_code = "T" + secrets.token_hex(4).upper()
+        record.link_code = "U" + secrets.token_hex(4).upper()  # «U» — код выдан самому жильцу (см. bot_logic.link)
         record.link_code_expires_at = timezone.now() + timedelta(hours=72)
         record.save(update_fields=["link_code", "link_code_expires_at", "updated_at"])
         return Response({"code": record.link_code, "expires_at": record.link_code_expires_at,
@@ -225,7 +225,8 @@ class TenantTelegramLinkView(APIView):
 
     @extend_schema(request=None, responses={204: None})
     def delete(self, request):
-        Tenant.objects.filter(user=request.user).update(telegram_chat_id=None, link_code=None, link_code_expires_at=None)
+        Tenant.objects.filter(user=request.user).update(telegram_chat_id=None, telegram_login=False, link_code=None,
+                                                        link_code_expires_at=None)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

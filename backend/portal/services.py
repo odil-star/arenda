@@ -122,7 +122,10 @@ def invite_preview(token):
 def _link(tenant, user, *, method, now=None):
     now = now or timezone.now()
     tenant.user = user
-    tenant.save(update_fields=["user", "updated_at"])
+    # Чат, привязанный к записи до появления аккаунта, мог привязать кто угодно (в т. ч. арендодатель) —
+    # для уведомлений он остаётся, но входом в этот аккаунт не служит.
+    tenant.telegram_login = False
+    tenant.save(update_fields=["user", "telegram_login", "updated_at"])
     revoke_active_invites(tenant, tenant.owner, user, now)
     log_action(tenant.owner, "tenant.linked", tenant, actor=user, method=method, user=user.pk)
 

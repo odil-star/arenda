@@ -114,6 +114,9 @@ class Tenant(OwnedModel):
     # Разрешить привязку аккаунта по номеру телефона (SMS-код). Защита от опечатки в номере.
     phone_claim_enabled = models.BooleanField(default=True)
     telegram_chat_id = models.BigIntegerField(null=True, blank=True)
+    # Чат привязал сам владелец аккаунта жильца (код из своего кабинета или номер, подтверждённый SMS).
+    # Только такой чат годится для входа через мини-приложение; код от арендодателя — лишь для уведомлений.
+    telegram_login = models.BooleanField(default=False)
     passport = models.CharField(max_length=255, blank=True)
     notes = models.TextField(blank=True)
     language = models.CharField(max_length=2, choices=Language.choices, default=Language.RU)

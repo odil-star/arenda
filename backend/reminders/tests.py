@@ -481,11 +481,55 @@ class SmsFallbackAndMiniAppAuthTests(OwnerTestCase):
     def test_miniapp_login_for_tenant_with_account(self):
         from portal.services import create_tenant_user
         from rest_framework.test import APIClient
-        tenant = self.make_tenant(telegram_chat_id=888)
+        tenant = self.make_tenant()
         tenant.user = create_tenant_user(email="mini@example.com", password="T3nant-pass-987")
         tenant.save()
+        cabinet = APIClient()
+        cabinet.force_authenticate(tenant.user)
+        code = cabinet.post("/api/tenant/telegram-link/").json()["code"]
+        self.assertTrue(code.startswith("U"))
+        self.assertIn("привязан", link(code, 888))
         r = APIClient().post("/api/auth/telegram/", {"init_data": self._init_data("123:ABC", 888)}, format="json")
         self.assertEqual(r.status_code, 200)
+
+    @override_settings(TELEGRAM_BOT_TOKEN="123:ABC")
+    def test_landlord_code_does_not_grant_tenant_login(self):
+        """Арендодатель сам отправляет боту код из карточки жильца — входа в аккаунт жильца это не даёт."""
+        from portal.services import create_tenant_user
+        from rest_framework.test import APIClient
+        victim = create_tenant_user(email="victim@example.com", password="T3nant-pass-987")
+        own = self.make_tenant(user=victim)
+        other = self.make_tenant(owner=self.user_b, user=victim, telegram_chat_id=555, telegram_login=True)
+        code = self.client.post(f"/api/tenants/{own.pk}/link-code/").json()["code"]
+        self.assertIn("привязан", link(code, 999))  # чат злоумышленника
+        own.refresh_from_db()
+        other.refresh_from_db()
+        self.assertEqual((own.telegram_chat_id, own.telegram_login), (999, False))
+        self.assertEqual((other.telegram_chat_id, other.telegram_login), (555, True))  # чужие записи не тронуты
+        r = APIClient().post("/api/auth/telegram/", {"init_data": self._init_data("123:ABC", 999)}, format="json")
+        self.assertEqual(r.json()["code"], "not_linked")
+
+    @override_settings(TELEGRAM_BOT_TOKEN="123:ABC")
+    def test_chat_linked_before_account_does_not_grant_login(self):
+        """Чат привязан к записи до приглашения; жилец принял приглашение — входом этот чат не становится."""
+        from portal.services import accept_invite, create_invite, create_tenant_user
+        from rest_framework.test import APIClient
+        tenant = self.make_tenant()
+        self.assertIn("привязан", link(self.client.post(f"/api/tenants/{tenant.pk}/link-code/").json()["code"], 999))
+        _invite, token = create_invite(tenant_id=tenant.pk, owner=self.user_a, actor=self.user_a)
+        accept_invite(token, create_tenant_user(email="new@example.com", password="T3nant-pass-987"))
+        tenant.refresh_from_db()
+        self.assertFalse(tenant.telegram_login)
+        r = APIClient().post("/api/auth/telegram/", {"init_data": self._init_data("123:ABC", 999)}, format="json")
+        self.assertEqual(r.json()["code"], "not_linked")
+
+    @override_settings(TELEGRAM_BOT_TOKEN="123:ABC")
+    def test_staff_cannot_use_miniapp_login(self):
+        from rest_framework.test import APIClient
+        self.user_a.telegram_chat_id, self.user_a.is_staff = 778, True
+        self.user_a.save()
+        r = APIClient().post("/api/auth/telegram/", {"init_data": self._init_data("123:ABC", 778)}, format="json")
+        self.assertEqual((r.status_code, r.json()["code"]), (403, "staff_not_allowed"))
 
 
 class PhoneShareLinkTests(OwnerTestCase):
@@ -523,3 +567,12 @@ class PhoneShareLinkTests(OwnerTestCase):
         tenant.user = create_tenant_user(email=phone_email("+998900000000"), password="T3nant-pass-987")
         tenant.save()
         self.assertIn("привязан", link_by_phone(8, "+998900000000"))
+        tenant.refresh_from_db()
+        self.assertTrue(tenant.telegram_login)  # номер подтверждён и в Telegram, и SMS — чат годится для входа
+
+    def test_phone_link_without_account_is_notifications_only(self):
+        from .bot_logic import link_by_phone
+        tenant = self.make_tenant()
+        link_by_phone(9, "+998900000000")
+        tenant.refresh_from_db()
+        self.assertEqual((tenant.telegram_chat_id, tenant.telegram_login), (9, False))

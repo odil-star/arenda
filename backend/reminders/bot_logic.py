@@ -20,7 +20,13 @@ def _language(chat_id):
 
 
 def link(code, chat_id):
-    """Привязать чат по одноразовому коду (арендатор — «T…», владелец — «O…»)."""
+    """Привязать чат по одноразовому коду.
+
+    «T…» — код выдал арендодатель (карточка жильца): привязывается только эта запись и только для уведомлений —
+    арендодатель мог отправить код сам, поэтому такой чат не даёт входа в аккаунт жильца.
+    «U…» — код получил сам жилец в своём кабинете: чат привязывается ко всем его записям и годится для входа
+    через мини-приложение. «O…» — владелец.
+    """
     raw = (code or "").strip()
     if raw[:2].lower() == "s_":
         return link_saved_search(raw[2:], chat_id)
@@ -28,18 +34,21 @@ def link(code, chat_id):
     now = timezone.now()
     if not code:
         return t("ru", "need_link")
-    if code.startswith("T"):
+    if code.startswith(("T", "U")):
+        by_tenant = code.startswith("U")
         with transaction.atomic():
             tenant = (Tenant.objects.select_for_update()
                       .filter(link_code=code, link_code_expires_at__gt=now).first())
-            if tenant is None:
+            if tenant is None or (by_tenant and not tenant.user_id):
                 return t("ru", "unknown_code")
             tenant.telegram_chat_id = chat_id
+            tenant.telegram_login = by_tenant
             tenant.link_code = None
             tenant.link_code_expires_at = None
-            tenant.save(update_fields=["telegram_chat_id", "link_code", "link_code_expires_at", "updated_at"])
-            if tenant.user_id:  # один аккаунт жильца — все его записи у разных арендодателей
-                Tenant.objects.filter(user_id=tenant.user_id).update(telegram_chat_id=chat_id)
+            tenant.save(update_fields=["telegram_chat_id", "telegram_login", "link_code", "link_code_expires_at",
+                                       "updated_at"])
+            if by_tenant:  # один аккаунт жильца — все его записи у разных арендодателей
+                Tenant.objects.filter(user_id=tenant.user_id).update(telegram_chat_id=chat_id, telegram_login=True)
             return t(tenant.language, "linked_tenant", name=tenant.full_name)
     if code.startswith("O"):
         try:
@@ -146,7 +155,11 @@ def link_by_phone(chat_id, phone_raw):
         allowed = [r for r in rows if r.user_id is None or r.user.email == phone_email(phone)]
         if not allowed:
             return t(rows[0].language, "phone_needs_site")
-        Tenant.objects.filter(pk__in=[r.pk for r in allowed]).update(telegram_chat_id=chat_id)
+        # вход через мини-приложение — только для записей, чей аккаунт создан входом по этому же номеру (SMS)
+        with_account = [r.pk for r in allowed if r.user_id is not None]
+        Tenant.objects.filter(pk__in=with_account).update(telegram_chat_id=chat_id, telegram_login=True)
+        Tenant.objects.filter(pk__in=[r.pk for r in allowed if r.user_id is None]).update(
+            telegram_chat_id=chat_id, telegram_login=False)
         return t(allowed[0].language, "linked_tenant", name=allowed[0].full_name)
 
 
@@ -161,7 +174,7 @@ def language_of(chat_id):
 def unlink(chat_id):
     """Отвязать чат от всех записей арендатора и от владельца."""
     lang = _language(chat_id)
-    Tenant.objects.filter(telegram_chat_id=chat_id).update(telegram_chat_id=None)
+    Tenant.objects.filter(telegram_chat_id=chat_id).update(telegram_chat_id=None, telegram_login=False)
     User.objects.filter(telegram_chat_id=chat_id).update(telegram_chat_id=None)
     from leasing.models import SavedSearch
     SavedSearch.objects.filter(chat_id=chat_id).update(is_active=False)

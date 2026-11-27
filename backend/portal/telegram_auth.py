@@ -52,11 +52,15 @@ def validate_init_data(init_data, token, now=None, max_age=MAX_AGE_SECONDS):
 
 
 def user_for_chat(chat_id):
-    """Аккаунт по привязанному чату: сначала владелец, затем жилец (с аккаунтом в приложении)."""
+    """Аккаунт по привязанному чату: сначала владелец, затем жилец (с аккаунтом в приложении).
+
+    Жилец — только если чат привязал он сам (telegram_login): код от арендодателя входа не даёт.
+    """
     owner = User.objects.filter(telegram_chat_id=chat_id, is_active=True).first()
     if owner:
         return owner
-    tenant = (Tenant.objects.filter(telegram_chat_id=chat_id, user__isnull=False, user__is_active=True)
+    tenant = (Tenant.objects.filter(telegram_chat_id=chat_id, telegram_login=True, user__isnull=False,
+                                    user__is_active=True)
               .select_related("user").order_by("id").first())
     return tenant.user if tenant else None
 
@@ -82,5 +86,8 @@ class TelegramLoginView(PublicView):
         if user is None:
             return Response({"detail": "Telegram ещё не привязан к аккаунту.", "code": "not_linked"},
                             status=status.HTTP_400_BAD_REQUEST)
+        if user.is_staff or user.is_superuser:  # сотрудники платформы входят только паролем/passkey
+            return Response({"detail": "Сотрудникам платформы вход через Telegram недоступен.",
+                             "code": "staff_not_allowed"}, status=status.HTTP_403_FORBIDDEN)
         refresh = RefreshToken.for_user(user)
         return Response({"access": str(refresh.access_token), "refresh": str(refresh)})
