@@ -65,6 +65,8 @@ function SubscriptionDialog({ user, onClose }: { user: AdminUser; onClose: () =>
   const [plan, setPlan] = useState(user.plan ? String(user.plan.id) : "none");
   const [paidUntil, setPaidUntil] = useState(user.plan?.paid_until ?? "");
   const [note, setNote] = useState(user.plan?.note ?? "");
+  const [managerName, setManagerName] = useState(user.plan?.manager_name ?? "");
+  const [managerContact, setManagerContact] = useState(user.plan?.manager_contact ?? "");
   const [errors, setErrors] = useState<string[]>([]);
 
   const options = [
@@ -74,12 +76,20 @@ function SubscriptionDialog({ user, onClose }: { user: AdminUser; onClose: () =>
       .map((p) => ({ value: String(p.id), label: p.name })),
   ];
 
+  const isVip = (plans.data ?? []).find((p) => String(p.id) === plan)?.tier === "vip";
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await save.mutateAsync({
         id: user.id,
-        input: { plan: plan === "none" ? null : Number(plan), paid_until: plan === "none" ? null : paidUntil || null, note: plan === "none" ? "" : note.trim() },
+        input: {
+          plan: plan === "none" ? null : Number(plan),
+          paid_until: plan === "none" ? null : paidUntil || null,
+          note: plan === "none" ? "" : note.trim(),
+          manager_name: plan === "none" || !isVip ? "" : managerName.trim(),
+          manager_contact: plan === "none" || !isVip ? "" : managerContact.trim(),
+        },
       });
       toast.success(t("admin.landlords.subscriptionSaved"));
       onClose();
@@ -116,6 +126,16 @@ function SubscriptionDialog({ user, onClose }: { user: AdminUser; onClose: () =>
             <FormField label={t("admin.landlords.noteLabel")} optional>
               {(c) => <Input {...c} maxLength={255} value={note} onChange={(e) => setNote(e.target.value)} />}
             </FormField>
+            {isVip && (
+              <>
+                <FormField label={t("admin.landlords.managerName")} optional>
+                  {(c) => <Input {...c} maxLength={100} value={managerName} onChange={(e) => setManagerName(e.target.value)} />}
+                </FormField>
+                <FormField label={t("admin.landlords.managerContact")} hint={t("admin.landlords.managerHint")} optional>
+                  {(c) => <Input {...c} maxLength={255} value={managerContact} onChange={(e) => setManagerContact(e.target.value)} />}
+                </FormField>
+              </>
+            )}
           </>
         )}
       </form>

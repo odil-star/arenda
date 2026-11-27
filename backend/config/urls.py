@@ -12,6 +12,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/admin/", include("core.admin_urls")),
     path("api/announcements/", ActiveAnnouncementsView.as_view()),
+    path("api/", include("core.integrations_urls")),
     path("api/", include("users.urls")),
     path("api/", include("billing.urls")),
     path("api/", include("leasing.urls")),

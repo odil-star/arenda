@@ -41,6 +41,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "core.middleware.ResetAssistantMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -145,6 +146,10 @@ REST_FRAMEWORK = {
         "auth": env("AUTH_THROTTLE_RATE", default="10/min"),
         # выгрузки ПДн и вход «как арендодатель» (на пользователя)
         "admin_sensitive": env("ADMIN_SENSITIVE_THROTTLE_RATE", default="60/hour"),
+        # проверка жильца: не больше N в час на арендодателя, чтобы нельзя было «прощупывать» базу
+        "screening": env("SCREENING_THROTTLE_RATE", default="30/hour"),
+        # выгрузки по ключу API (на арендодателя)
+        "api_export": env("API_EXPORT_THROTTLE_RATE", default="120/min"),
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "NUM_PROXIES": env.int("NUM_PROXIES", default=0),
@@ -158,6 +163,8 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     # Использованный refresh отзывается; при смене пароля отзываются все (users.tokens.revoke_user_tokens).
     "BLACKLIST_AFTER_ROTATION": True,
+    # фиксируем время входа — показываем его в профиле админа
+    "UPDATE_LAST_LOGIN": True,
 }
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ORIGINS", default=[])

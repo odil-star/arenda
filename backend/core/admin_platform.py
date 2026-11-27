@@ -231,7 +231,7 @@ class AdminPlanSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Plan
-        fields = ("id", "name", "max_properties", "price", "is_active", "users_count")
+        fields = ("id", "name", "tier", "max_properties", "price", "is_active", "users_count")
         read_only_fields = ("id", "users_count")
 
 

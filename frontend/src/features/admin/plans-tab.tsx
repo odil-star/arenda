@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FormAlert, FormField } from "@/components/common/form-field";
 import { EmptyState, ErrorState } from "@/components/common/states";
@@ -22,6 +23,7 @@ function PlanDialog({ plan, onClose }: { plan: AdminPlan | "new"; onClose: () =>
   const editing = plan === "new" ? undefined : plan;
   const [name, setName] = useState(editing?.name ?? "");
   const [limit, setLimit] = useState(editing?.max_properties != null ? String(editing.max_properties) : "");
+  const [tier, setTier] = useState<AdminPlan["tier"]>(editing?.tier ?? "free");
   const [price, setPrice] = useState(editing ? String(editing.price) : "0");
   const [active, setActive] = useState(editing?.is_active ?? true);
   const [errors, setErrors] = useState<string[]>([]);
@@ -33,6 +35,7 @@ function PlanDialog({ plan, onClose }: { plan: AdminPlan | "new"; onClose: () =>
         id: editing?.id,
         input: {
           name: name.trim(),
+          tier,
           max_properties: limit.trim() === "" ? null : Number(limit),
           price: Number(price) || 0,
           is_active: active,
@@ -64,6 +67,20 @@ function PlanDialog({ plan, onClose }: { plan: AdminPlan | "new"; onClose: () =>
         <FormAlert messages={errors} />
         <FormField label={t("admin.plans.name")}>
           {(c) => <Input {...c} maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />}
+        </FormField>
+        <FormField label={t("admin.plans.tier")} hint={t("admin.plans.tierHint")}>
+          {(c) => (
+            <Select
+              id={c.id}
+              value={tier}
+              onValueChange={(v) => setTier(v as AdminPlan["tier"])}
+              options={[
+                { value: "free", label: "Free" },
+                { value: "prime", label: "Prime" },
+                { value: "vip", label: "VIP" },
+              ]}
+            />
+          )}
         </FormField>
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label={t("admin.plans.limit")} hint={t("admin.plans.limitHint")}>
@@ -127,7 +144,7 @@ export function AdminPlansTab() {
               <CardContent className="space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate font-display text-lg font-semibold">{p.name}</p>
+                    <p className="truncate font-display text-lg font-semibold">{p.name} <Badge tone="info">{p.tier === "vip" ? "VIP" : p.tier === "prime" ? "Prime" : "Free"}</Badge></p>
                     <p className="text-sm tabular text-muted-foreground">
                       {Number(p.price) > 0 ? fmt.money(p.price) : t("admin.plans.free")}
                     </p>

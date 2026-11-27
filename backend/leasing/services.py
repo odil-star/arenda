@@ -138,6 +138,22 @@ def credit_payment(payment, amount):
     payment.amount_paid += amount
     payment.paid_at = timezone.now()
     payment.save(update_fields=["amount_paid", "paid_at", "updated_at"])
+    # VIP: событие во внешний webhook — после коммита, чтобы получатель не увидел то, что потом откатилось
+    transaction.on_commit(lambda: _emit_payment_received(payment.pk, amount))
+
+
+def _emit_payment_received(payment_id, amount):
+    from core.integrations import emit
+    from .models import Payment
+
+    payment = Payment.objects.select_related("owner", "lease__property", "lease__tenant").filter(pk=payment_id).first()
+    if payment is None:
+        return
+    emit(payment.owner, "payment.received", {
+        "payment_id": payment.pk, "lease_id": payment.lease_id, "property": payment.lease.property.name,
+        "tenant": payment.lease.tenant.full_name, "due_date": payment.due_date.isoformat(), "amount": amount,
+        "amount_paid": payment.amount_paid, "amount_due": payment.amount_due, "status": payment.status,
+    })
 
 
 def revert_payment(payment, amount):

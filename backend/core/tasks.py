@@ -12,7 +12,8 @@ from leasing.models import PaymentTransaction
 from users.models import User
 
 from .audit import log_action
-from .models import AuditLog, WebhookLog
+from .integrations import DeliveryError, post_event, record_result
+from .models import AuditLog, Webhook, WebhookLog
 
 logger = logging.getLogger(__name__)
 
@@ -75,3 +76,20 @@ def prune_webhook_logs():
     """Журнал вебхуков хранится 60 дней."""
     deleted, _ = WebhookLog.objects.filter(created_at__lt=timezone.now() - WEBHOOK_LOG_KEEP).delete()
     return deleted
+
+
+@shared_task(
+    autoretry_for=(DeliveryError,), retry_backoff=30, retry_backoff_max=3600, max_retries=5, retry_jitter=True,
+)
+def deliver_webhook(webhook_id, event, event_id, data):
+    """Доставка одного события; при сбое — повторы с растущей паузой (тот же event_id, чтобы получатель мог отсеять дубль)."""
+    hook = Webhook.objects.filter(pk=webhook_id, is_active=True).first()
+    if hook is None:
+        return "skipped"
+    try:
+        status = post_event(hook.url, hook.secret, event, event_id, data)
+    except DeliveryError as exc:
+        record_result(hook, ok=False, error=str(exc))
+        raise
+    record_result(hook, ok=True, status=status)
+    return status

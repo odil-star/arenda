@@ -173,6 +173,7 @@ function ThreadList({ selected, onSelect }: { selected: number | undefined; onSe
                       </span>
                       <span className="mt-1 flex items-center gap-1.5">
                         <RoleBadge role={row.user_role} />
+                        {row.priority && <Badge tone="info">{t("support.admin.priority")}</Badge>}
                         {row.status === "closed" && <Badge>{t("support.admin.closed")}</Badge>}
                       </span>
                     </span>

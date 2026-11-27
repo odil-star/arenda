@@ -17,6 +17,7 @@ import { AdminSupportTab } from "./support-tab";
 import { AdminSystemTab } from "./system-tab";
 import { AdminTenantsTab } from "./tenants-tab";
 import { AdminWebhooksTab } from "./webhooks-tab";
+import { ProfilePage } from "@/features/profile/profile-page";
 
 export function AdminPage() {
   const { t } = useTranslation();
@@ -42,6 +43,9 @@ export function AdminPage() {
       </>
     );
   }
+
+  // профиль админа — та же страница, что у арендодателя (свой заголовок, без плашек админки)
+  if (tab === "profile") return <ProfilePage />;
 
   return (
     <>

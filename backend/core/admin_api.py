@@ -202,6 +202,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
         return {
             "id": sub.plan_id, "name": sub.plan.name, "max_properties": sub.plan.max_properties,
             "paid_until": sub.paid_until, "expired": expired, "note": sub.note,
+            "tier": sub.plan.tier, "manager_name": sub.manager_name, "manager_contact": sub.manager_contact,
         }
 
     def get_telegram_linked(self, obj):
@@ -212,6 +213,8 @@ class SubscriptionInputSerializer(serializers.Serializer):
     plan = serializers.IntegerField(allow_null=True)
     paid_until = serializers.DateField(required=False, allow_null=True)
     note = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    manager_name = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    manager_contact = serializers.CharField(required=False, allow_blank=True, max_length=255)
 
 
 class AdminUserViewSet(ExportMixin, viewsets.ReadOnlyModelViewSet):
@@ -332,7 +335,10 @@ class AdminUserViewSet(ExportMixin, viewsets.ReadOnlyModelViewSet):
             if not plan.is_active and (current is None or current.plan_id != plan.pk):
                 raise serializers.ValidationError({"plan": "Тариф отключён."})
             Subscription.objects.update_or_create(
-                user=user, defaults={"plan": plan, "paid_until": v.get("paid_until"), "note": v.get("note", "")},
+                user=user, defaults={
+                    "plan": plan, "paid_until": v.get("paid_until"), "note": v.get("note", ""),
+                    "manager_name": v.get("manager_name", ""), "manager_contact": v.get("manager_contact", ""),
+                },
             )
             log_action(
                 user, "admin_subscription_set", user, actor=request.user,
@@ -453,3 +459,57 @@ class AdminTransactionViewSet(ExportMixin, viewsets.ReadOnlyModelViewSet):
         if self.request.query_params.get("problem") in ("1", "true"):
             qs = problem_transactions(qs)
         return qs
+
+
+class AdminProfileView(APIView):
+    """GET /api/admin/me/ — данные текущего сотрудника для его профиля: роль, вход, активность, поддержка."""
+
+    permission_classes = [IsPlatformAdmin]
+
+    @extend_schema(responses=OpenApiTypes.OBJECT)
+    def get(self, request):
+        from support.models import StaffPresence, SupportMessage, SupportThread
+        from support.services import is_online
+
+        user = request.user
+        now = timezone.now()
+        today_start = now.astimezone(timezone.get_current_timezone()).replace(hour=0, minute=0, second=0, microsecond=0)
+        week, month = now - timedelta(days=7), now - timedelta(days=30)
+
+        mine = AuditLog.objects.filter(actor=user)
+        counts = mine.aggregate(
+            today=Count("id", filter=Q(created_at__gte=today_start)),
+            week=Count("id", filter=Q(created_at__gte=week)),
+            month=Count("id", filter=Q(created_at__gte=month)),
+            total=Count("id"),
+        )
+        recent = [
+            {
+                "id": e.id, "action": e.action, "object_type": e.object_type, "object_id": e.object_id,
+                "owner_email": e.owner.email, "created_at": e.created_at,
+            }
+            for e in mine.select_related("owner")[:8]
+        ]
+
+        replies = SupportMessage.objects.filter(author=user, from_staff=True)
+        support = replies.aggregate(
+            today=Count("id", filter=Q(created_at__gte=today_start)),
+            week=Count("id", filter=Q(created_at__gte=week)),
+            month=Count("id", filter=Q(created_at__gte=month)),
+            total=Count("id"),
+            threads_month=Count("thread", filter=Q(created_at__gte=month), distinct=True),
+        )
+        support["open_threads"] = SupportThread.objects.filter(status=SupportThread.Status.OPEN).count()
+
+        presence = StaffPresence.objects.filter(user=user).first()
+        return Response({
+            "admin_role": "admin" if user.is_superuser else "support",
+            "date_joined": user.date_joined,
+            "last_login": user.last_login,
+            "presence": {
+                "online": bool(presence) and is_online(presence, now),
+                "last_seen": presence.last_seen if presence else None,
+            },
+            "activity": {**counts, "recent": recent},
+            "support": support,
+        })

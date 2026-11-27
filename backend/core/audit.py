@@ -1,8 +1,12 @@
+from .assistants import current_assistant
 from .models import AuditLog
 
 
 def log_action(owner, action, obj=None, actor=None, **details):
     """Записать действие в журнал. Вызывать внутри той же транзакции, что и само действие."""
+    assistant = current_assistant()
+    if assistant is not None:  # действие совершил помощник от имени владельца — это должно быть видно в журнале
+        details = {**details, "by_assistant": assistant.user.email, "assistant_role": assistant.role}
     return AuditLog.objects.create(
         owner=owner,
         actor=actor,

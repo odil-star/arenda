@@ -110,6 +110,9 @@ export interface AdminUserPlan {
   paid_until: string | null;
   expired: boolean;
   note: string;
+  tier?: "free" | "prime" | "vip";
+  manager_name?: string;
+  manager_contact?: string;
 }
 
 export interface AdminOverview {
@@ -280,6 +283,7 @@ export async function downloadExport(path: string, filename: string, params: obj
 export interface AdminPlan {
   id: number;
   name: string;
+  tier: "free" | "prime" | "vip";
   max_properties: number | null;
   price: Money;
   is_active: boolean;
@@ -288,6 +292,7 @@ export interface AdminPlan {
 
 export interface AdminPlanInput {
   name: string;
+  tier: "free" | "prime" | "vip";
   max_properties: number | null;
   price: number;
   is_active: boolean;
@@ -339,6 +344,8 @@ export interface SubscriptionInput {
   plan: number | null;
   paid_until: string | null;
   note: string;
+  manager_name?: string;
+  manager_contact?: string;
 }
 
 export function useSetSubscription() {
@@ -466,5 +473,29 @@ export function useSendAdminMessage() {
     mutationFn: async (input: AdminMessageInput) =>
       (await api.post<AdminMessage>("/admin/messages/", input, { timeout: 180_000 })).data,
     onSuccess: () => Promise.all(["admin-messages", "admin-audit"].map((k) => qc.invalidateQueries({ queryKey: [k] }))),
+  });
+}
+
+export interface AdminProfile {
+  admin_role: "admin" | "support";
+  date_joined: ISODateTime;
+  last_login: ISODateTime | null;
+  presence: { online: boolean; last_seen: ISODateTime | null };
+  activity: {
+    today: number;
+    week: number;
+    month: number;
+    total: number;
+    recent: { id: number; action: string; object_type: string; object_id: number | null; owner_email: string; created_at: ISODateTime }[];
+  };
+  support: { today: number; week: number; month: number; total: number; threads_month: number; open_threads: number };
+}
+
+/** Данные текущего сотрудника для его профиля. */
+export function useAdminProfile(enabled = true) {
+  return useQuery({
+    queryKey: ["admin-me"],
+    queryFn: async ({ signal }) => (await api.get<AdminProfile>("/admin/me/", { signal })).data,
+    enabled,
   });
 }

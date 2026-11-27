@@ -3,7 +3,7 @@ from datetime import timedelta
 from unittest import mock
 
 from django.core import mail
-from django.test import override_settings
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -30,6 +30,31 @@ class PlatformBase(OwnerTestCase):
         return PaymentTransaction.objects.create(
             owner=payment.owner, payment=payment, provider="payme", external_id=ext, amount=1000, state=state, **kw
         )
+
+
+class AdminProfileTests(PlatformBase):
+    def test_profile_counts_only_own_activity(self):
+        from support.models import SupportMessage, SupportThread
+
+        AuditLog.objects.create(owner=self.user_a, actor=self.admin, action="user.block", object_type="user", object_id=1)
+        AuditLog.objects.create(owner=self.user_a, actor=self.support, action="user.unblock")
+        thread = SupportThread.objects.create(user=self.user_a)
+        SupportMessage.objects.create(thread=thread, author=self.admin, from_staff=True, body="hi")
+        SupportMessage.objects.create(thread=thread, author=self.user_a, body="q")
+
+        data = self.client.get("/api/admin/me/").json()
+        self.assertEqual(data["admin_role"], "admin")
+        self.assertEqual((data["activity"]["today"], data["activity"]["total"]), (1, 1))
+        self.assertEqual(data["activity"]["recent"][0]["action"], "user.block")
+        self.assertEqual((data["support"]["total"], data["support"]["threads_month"], data["support"]["open_threads"]), (1, 1, 1))
+
+        self.login(self.support)
+        data = self.client.get("/api/admin/me/").json()
+        self.assertEqual((data["admin_role"], data["activity"]["total"], data["support"]["total"]), ("support", 1, 0))
+
+    def test_landlord_has_no_access(self):
+        self.login(self.user_a)
+        self.assertEqual(self.client.get("/api/admin/me/").status_code, 403)
 
 
 class SupportRoleTests(PlatformBase):
@@ -304,7 +329,7 @@ class PlanTests(PlatformBase):
         self.assertEqual((r.status_code, r.json()["max_properties"]), (201, None))
         self.assertEqual(self.client.post("/api/admin/plans/", {"name": "Безлимит"}, format="json").status_code, 400)  # имя занято
         self.assertEqual(self.client.post("/api/admin/plans/", {"name": "Z", "max_properties": 0}, format="json").status_code, 400)
-        self.assertEqual(Plan.objects.count(), 1)
+        self.assertEqual(Plan.objects.filter(name="Безлимит").count(), 1)
 
 
 @override_settings(ADMIN_ALERT_PROBLEM_THRESHOLD=2)
@@ -355,3 +380,42 @@ class DjangoAdminAuditTests(PlatformBase):
         self.assertFalse(model_admin.has_delete_permission(request))
         self.assertFalse(model_admin.has_change_permission(request))
         self.assertFalse(model_admin.has_add_permission(request))
+
+
+class TierInfoTests(TestCase):
+    """Free по умолчанию и после окончания срока; Prime/VIP — пока оплачено."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        self.user = get_user_model().objects.create_user("t@example.com", "pass12345")
+
+    def _sub(self, tier, paid_until=None):
+        from core.models import Plan, Subscription
+        plan = Plan.objects.create(name=f"x-{tier}", tier=tier)
+        Subscription.objects.create(user=self.user, plan=plan, paid_until=paid_until)
+
+    def test_no_subscription_is_free(self):
+        from core.tiers import has_tier, tier_info
+        self.assertEqual(tier_info(self.user)["tier"], "free")
+        self.assertFalse(has_tier(self.user, "prime"))
+
+    def test_active_vip_includes_lower_tiers(self):
+        from core.tiers import has_tier, tier_info
+        self._sub("vip")
+        self.assertEqual(tier_info(self.user)["tier"], "vip")
+        self.assertTrue(has_tier(self.user, "prime"))
+
+    def test_expired_falls_back_to_free(self):
+        from datetime import date, timedelta
+        from core.tiers import tier_info
+        self._sub("prime", date.today() - timedelta(days=1))
+        info = tier_info(self.user)
+        self.assertEqual(info["tier"], "free")
+        self.assertTrue(info["expired"])
+
+    def test_me_exposes_subscription(self):
+        from rest_framework.test import APIClient
+        self._sub("prime")
+        c = APIClient()
+        c.force_authenticate(self.user)
+        self.assertEqual(c.get("/api/me/").json()["subscription"]["tier"], "prime")
