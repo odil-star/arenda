@@ -195,11 +195,21 @@ CELERY_BEAT_SCHEDULE = {
         "task": "leasing.tasks.notify_saved_searches",
         "schedule": crontab(minute="*/30"),
     },
+    "nudge-stale-repairs": {
+        "task": "portal.tasks.nudge_stale_repairs",
+        "schedule": crontab(minute=40),  # каждый час
+    },
+    "purge-request-photos": {
+        "task": "portal.tasks.purge_request_photos",
+        "schedule": crontab(minute=20),  # каждый час
+    },
     "prune-webhook-logs": {
         "task": "core.tasks.prune_webhook_logs",
         "schedule": crontab(hour=3, minute=30),
     },
 }
+# Фото к заявкам на ремонт и показаниям счётчиков хранятся столько дней, затем удаляются
+REQUEST_PHOTO_KEEP_DAYS = env.int("REQUEST_PHOTO_KEEP_DAYS", default=3)
 # Оповещение админов: сколько проблемных оплат за сутки считать тревогой (0 — выключено)
 ADMIN_ALERT_PROBLEM_THRESHOLD = env.int("ADMIN_ALERT_PROBLEM_THRESHOLD", default=3)
 

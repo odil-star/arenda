@@ -12,13 +12,15 @@ from django.utils import timezone
 from django.http import FileResponse, Http404, HttpResponseRedirect
 from rest_framework import generics, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.exceptions import NotFound, Throttled, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.permissions import IsTenantRole
+from core.tiers import tier_info
+from leasing.brand import active_brand
 from core.phone import try_normalize_phone
 from users.models import User, UserProfile
 from users.tokens import revoke_user_tokens
@@ -26,8 +28,12 @@ from users.views import AuthThrottleMixin
 from leasing.models import Lease, Payment, Tenant
 from leasing.views import PaymentFilter
 
-from . import media as media_service, receipts, services
-from .models import LeaseMedia, PaymentReceipt, PushSubscription, TenantNotification
+from reminders.channels import bot_link
+
+from . import media as media_service, receipts, services, tenant_requests
+from .models import (
+    LeaseMedia, LeaseRequest, TenantMeterReading, PaymentReceipt, PushSubscription, RepairRequest, TenantNotification,
+)
 from .serializers import (
     BulkIdsSerializer, PushSubscribeSerializer, PushUnsubscribeSerializer,
     PhoneRequestSerializer, PhoneVerifySerializer, RegisterTenantSerializer, TenantLeaseSerializer,
@@ -35,6 +41,9 @@ from .serializers import (
     RejectSerializer, TenantProfileUpdateSerializer,
     TenantPasswordSerializer, PhonePasswordSerializer, LeaseMediaSerializer, LeaseMediaUploadSerializer,
     MediaReplaceSerializer, TenantNotificationSerializer,
+    RepairSerializer, RepairCreateSerializer, RepairUpdateSerializer, TenantMeterSerializer,
+    TenantMeterCreateSerializer, LeaseRequestSerializer, LeaseRequestCreateSerializer,
+    LeaseRequestResolveSerializer,
 )
 from .throttling import (
     InviteAcceptThrottle, InvitePreviewThrottle, PhoneRequestIPThrottle, PhoneVerifyThrottle, hit,
@@ -160,11 +169,15 @@ class TenantMeView(APIView):
         body = TenantProfileUpdateSerializer(data=request.data)
         body.is_valid(raise_exception=True)
         user = request.user
-        fields = list(body.validated_data)
-        for name, value in body.validated_data.items():
+        data = dict(body.validated_data)
+        if "share_reliability" in data:  # согласие хранится в профиле, а не в самом пользователе
+            profile = user.profile
+            profile.share_reliability = data.pop("share_reliability")
+            profile.save(update_fields=["share_reliability"])
+        for name, value in data.items():
             setattr(user, name, value)
-        if fields:
-            user.save(update_fields=fields)
+        if data:
+            user.save(update_fields=list(data))
         return Response(self._payload(user))
 
     @staticmethod
@@ -179,10 +192,17 @@ class TenantMeView(APIView):
             "language": user.language,
             "has_password": user.has_usable_password(),
             "tours_seen": user.profile.tours_seen,
+            "share_reliability": user.profile.share_reliability,
             "telegram_linked": any(t.telegram_chat_id for t in records),
             "landlords": [
-                {"tenant": t.pk, "full_name": t.full_name, "landlord_name": services.landlord_name(t.owner)}
+                {"tenant": t.pk, "full_name": t.full_name, "landlord_name": services.landlord_name(t.owner),
+                 "landlord_tier": tier_info(t.owner)["tier"]}
                 for t in records
+            ],
+            "brands": [
+                {"tenant": t.pk, "name": brand.company_name, "has_logo": bool(brand.logo)}
+                for t in records
+                if (brand := active_brand(t.owner, "vip")) is not None
             ],
         }
 
@@ -200,7 +220,8 @@ class TenantTelegramLinkView(APIView):
         record.link_code = "T" + secrets.token_hex(4).upper()
         record.link_code_expires_at = timezone.now() + timedelta(hours=72)
         record.save(update_fields=["link_code", "link_code_expires_at", "updated_at"])
-        return Response({"code": record.link_code, "expires_at": record.link_code_expires_at})
+        return Response({"code": record.link_code, "expires_at": record.link_code_expires_at,
+                         "bot_url": bot_link(record.link_code)})
 
     @extend_schema(request=None, responses={204: None})
     def delete(self, request):
@@ -518,6 +539,29 @@ class TenantMediaFileView(APIView):
         return _file_response(item)
 
 
+class TenantBrandLogoView(APIView):
+    """GET /api/tenant/brand/<tenant_id>/logo/ — логотип владельца (VIP) для шапки кабинета жильца."""
+
+    permission_classes = [IsTenantRole]
+
+    @extend_schema(responses=OpenApiTypes.BINARY)
+    def get(self, request, pk):
+        record = Tenant.objects.filter(pk=pk, user=request.user).select_related("owner").first()
+        brand = active_brand(record.owner, "vip") if record else None
+        if brand is None or not brand.logo:
+            raise NotFound()
+        try:
+            handle = brand.logo.open("rb")
+        except FileNotFoundError:
+            raise Http404
+        head = handle.read(8)
+        handle.seek(0)
+        response = FileResponse(handle, content_type="image/png" if head.startswith(b"\x89PNG") else "image/jpeg")
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Cache-Control"] = "private, max-age=300"
+        return response
+
+
 class TenantNotificationListView(generics.ListAPIView):
     permission_classes = [IsTenantRole]
     serializer_class = TenantNotificationSerializer
@@ -537,3 +581,190 @@ class TenantNotificationReadView(APIView):
 
         TenantNotification.objects.filter(user=request.user, read_at__isnull=True).update(read_at=timezone.now())
         return Response({"detail": "ok"})
+
+
+# ---------- заявки жильца: ремонт, счётчики, продление/выезд ----------
+
+def _photo_response(obj):
+    if not obj.photo:
+        raise Http404
+    if not isinstance(obj.photo.storage, FileSystemStorage):
+        return HttpResponseRedirect(obj.photo.url)
+    try:
+        handle = obj.photo.open("rb")
+    except FileNotFoundError:
+        raise Http404
+    response = FileResponse(handle, content_type=obj.photo_content_type or "application/octet-stream")
+    response["Content-Disposition"] = "inline"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+class TenantRepairListCreateView(generics.ListCreateAPIView):
+    """GET/POST /api/tenant/repairs/ — заявки на ремонт (multipart: lease, title, description?, photo?)."""
+
+    permission_classes = [IsTenantRole]
+    serializer_class = RepairSerializer
+    filterset_fields = ("lease", "status")
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_queryset(self):
+        return RepairRequest.objects.filter(
+            lease__tenant__user=self.request.user, lease__hidden_by_tenant=False
+        ).select_related("lease__property", "lease__tenant")
+
+    @extend_schema(request=RepairCreateSerializer, responses=RepairSerializer)
+    def create(self, request, *args, **kwargs):
+        body = RepairCreateSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        data = body.validated_data
+        item = tenant_requests.create_repair(
+            user=request.user, lease_id=data["lease"], title=data["title"], description=data["description"],
+            photo=data.get("photo"))
+        return Response(self.get_serializer(item).data, status=status.HTTP_201_CREATED)
+
+
+class TenantRepairPhotoView(APIView):
+    permission_classes = [IsTenantRole]
+
+    @extend_schema(responses=OpenApiTypes.BINARY)
+    def get(self, request, pk):
+        item = RepairRequest.objects.filter(pk=pk, lease__tenant__user=request.user).first()
+        if item is None:
+            raise NotFound()
+        return _photo_response(item)
+
+
+class TenantMeterListCreateView(generics.ListCreateAPIView):
+    """GET/POST /api/tenant/meter-readings/ — показания счётчиков (multipart: lease, kind, value, photo?)."""
+
+    permission_classes = [IsTenantRole]
+    serializer_class = TenantMeterSerializer
+    filterset_fields = ("lease", "kind")
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_queryset(self):
+        return TenantMeterReading.objects.filter(
+            lease__tenant__user=self.request.user, lease__hidden_by_tenant=False
+        ).select_related("lease__property", "lease__tenant")
+
+    @extend_schema(request=TenantMeterCreateSerializer, responses=TenantMeterSerializer)
+    def create(self, request, *args, **kwargs):
+        body = TenantMeterCreateSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        data = body.validated_data
+        item = tenant_requests.submit_reading(
+            user=request.user, lease_id=data["lease"], kind=data["kind"], value=data["value"],
+            photo=data.get("photo"))
+        return Response(self.get_serializer(item).data, status=status.HTTP_201_CREATED)
+
+
+class TenantMeterPhotoView(APIView):
+    permission_classes = [IsTenantRole]
+
+    @extend_schema(responses=OpenApiTypes.BINARY)
+    def get(self, request, pk):
+        item = TenantMeterReading.objects.filter(pk=pk, lease__tenant__user=request.user).first()
+        if item is None:
+            raise NotFound()
+        return _photo_response(item)
+
+
+class TenantLeaseRequestListCreateView(generics.ListCreateAPIView):
+    """GET/POST /api/tenant/lease-requests/ — просьба продлить договор или о выезде."""
+
+    permission_classes = [IsTenantRole]
+    serializer_class = LeaseRequestSerializer
+    filterset_fields = ("lease", "status")
+
+    def get_queryset(self):
+        return LeaseRequest.objects.filter(
+            lease__tenant__user=self.request.user, lease__hidden_by_tenant=False
+        ).select_related("lease__property", "lease__tenant")
+
+    @extend_schema(request=LeaseRequestCreateSerializer, responses=LeaseRequestSerializer)
+    def create(self, request, *args, **kwargs):
+        body = LeaseRequestCreateSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        data = body.validated_data
+        item = tenant_requests.create_lease_request(
+            user=request.user, lease_id=data["lease"], kind=data["kind"], months=data.get("months"),
+            move_out_date=data.get("move_out_date"), comment=data["comment"])
+        return Response(self.get_serializer(item).data, status=status.HTTP_201_CREATED)
+
+
+class TenantLeaseRequestCancelView(APIView):
+    """POST /api/tenant/lease-requests/{id}/cancel/ — жилец отзывает просьбу, пока она не обработана."""
+
+    permission_classes = [IsTenantRole]
+
+    @extend_schema(request=None, responses={204: None})
+    def post(self, request, pk):
+        tenant_requests.cancel_lease_request(user=request.user, request_id=pk)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class RepairViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    """Арендодатель: заявки на ремонт по своим объектам (чужие — 404)."""
+
+    serializer_class = RepairSerializer
+    filterset_fields = {"status": ["exact"], "lease": ["exact"], "lease__property": ["exact"]}
+
+    def get_queryset(self):
+        return RepairRequest.objects.filter(owner=self.request.user).select_related("lease__property", "lease__tenant")
+
+    @extend_schema(request=RepairUpdateSerializer, responses=RepairSerializer)
+    @action(detail=True, methods=["post"], url_path="set-status")
+    def set_status(self, request, pk=None):
+        item = self.get_object()
+        body = RepairUpdateSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        tenant_requests.update_repair(
+            owner=request.user, actor=request.user, repair_id=item.pk, status=body.validated_data["status"],
+            comment=body.validated_data["landlord_comment"])
+        return Response(self.get_serializer(self.get_queryset().get(pk=item.pk)).data)
+
+    @extend_schema(responses=OpenApiTypes.BINARY)
+    @action(detail=True, methods=["get"])
+    def photo(self, request, pk=None):
+        return _photo_response(self.get_object())
+
+
+class TenantMeterViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    serializer_class = TenantMeterSerializer
+    filterset_fields = {"lease": ["exact"], "kind": ["exact"], "lease__property": ["exact"]}
+
+    def get_queryset(self):
+        return TenantMeterReading.objects.filter(owner=self.request.user).select_related("lease__property", "lease__tenant")
+
+    @extend_schema(responses=OpenApiTypes.BINARY)
+    @action(detail=True, methods=["get"])
+    def photo(self, request, pk=None):
+        return _photo_response(self.get_object())
+
+
+class LeaseRequestViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    serializer_class = LeaseRequestSerializer
+    filterset_fields = ("status", "kind", "lease")
+
+    def get_queryset(self):
+        return LeaseRequest.objects.filter(owner=self.request.user).select_related("lease__property", "lease__tenant")
+
+    def _resolve(self, request, accept):
+        item = self.get_object()
+        body = LeaseRequestResolveSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        tenant_requests.resolve_lease_request(
+            owner=request.user, actor=request.user, request_id=item.pk, accept=accept,
+            comment=body.validated_data["comment"])
+        return Response(self.get_serializer(self.get_queryset().get(pk=item.pk)).data)
+
+    @extend_schema(request=LeaseRequestResolveSerializer, responses=LeaseRequestSerializer)
+    @action(detail=True, methods=["post"])
+    def accept(self, request, pk=None):
+        return self._resolve(request, True)
+
+    @extend_schema(request=LeaseRequestResolveSerializer, responses=LeaseRequestSerializer)
+    @action(detail=True, methods=["post"])
+    def decline(self, request, pk=None):
+        return self._resolve(request, False)

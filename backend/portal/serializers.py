@@ -7,7 +7,7 @@ from leasing.models import Lease, Payment
 from users.models import User
 
 from . import receipts
-from .models import LeaseMedia, PaymentReceipt, TenantNotification
+from .models import LeaseMedia, LeaseRequest, TenantMeterReading, PaymentReceipt, RepairRequest, TenantNotification
 from .services import landlord_name
 
 
@@ -66,12 +66,20 @@ class TenantLeaseSerializer(serializers.ModelSerializer):
     property_name = serializers.CharField(source="property.name", read_only=True)
     property_address = serializers.CharField(source="property.address", read_only=True)
     landlord_name = serializers.SerializerMethodField()
+    landlord_phone = serializers.SerializerMethodField()
+    landlord_telegram = serializers.BooleanField(source="property.has_telegram", read_only=True)
+    house_rules = serializers.CharField(source="property.house_rules", read_only=True)
 
     class Meta:
         model = Lease
-        fields = ("id", "property_name", "property_address", "landlord_name", "start_date", "end_date",
+        fields = ("id", "property_name", "property_address", "landlord_name", "landlord_phone",
+                  "landlord_telegram", "house_rules", "start_date", "end_date",
                   "rent_amount", "deposit_amount", "payment_day", "inventory", "status")
         read_only_fields = fields
+
+    def get_landlord_phone(self, obj):
+        # телефон для связи объекта (если задан) или номер аккаунта владельца
+        return obj.property.contact_phone.strip() or obj.owner.phone
 
     def get_landlord_name(self, obj):
         return landlord_name(obj.owner)
@@ -164,6 +172,7 @@ class TenantProfileUpdateSerializer(serializers.Serializer):
     last_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
     phone = serializers.CharField(required=False, allow_blank=True, max_length=32)
     language = serializers.ChoiceField(required=False, choices=["ru", "uz"])
+    share_reliability = serializers.BooleanField(required=False)
 
     def validate_phone(self, value):
         if not value.strip():
@@ -211,3 +220,77 @@ class TenantNotificationSerializer(serializers.ModelSerializer):
 
     def get_is_read(self, obj):
         return obj.read_at is not None
+
+
+# ---------- заявки жильца ----------
+
+class RepairSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source="lease.property.name", read_only=True)
+    tenant_name = serializers.CharField(source="lease.tenant.full_name", read_only=True)
+    has_photo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RepairRequest
+        fields = ("id", "lease", "property_name", "tenant_name", "title", "description", "status",
+                  "landlord_comment", "has_photo", "created_at", "resolved_at")
+        read_only_fields = fields
+
+    def get_has_photo(self, obj):
+        return bool(obj.photo)
+
+
+class RepairCreateSerializer(serializers.Serializer):
+    lease = serializers.IntegerField()
+    title = serializers.CharField(max_length=120)
+    description = serializers.CharField(max_length=2000, required=False, allow_blank=True, default="")
+    photo = serializers.FileField(required=False)
+
+
+class RepairUpdateSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=RepairRequest.Status.choices)
+    landlord_comment = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
+
+
+class TenantMeterSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source="lease.property.name", read_only=True)
+    tenant_name = serializers.CharField(source="lease.tenant.full_name", read_only=True)
+    has_photo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TenantMeterReading
+        fields = ("id", "lease", "property_name", "tenant_name", "kind", "period", "value", "has_photo",
+                  "created_at", "updated_at")
+        read_only_fields = fields
+
+    def get_has_photo(self, obj):
+        return bool(obj.photo)
+
+
+class TenantMeterCreateSerializer(serializers.Serializer):
+    lease = serializers.IntegerField()
+    kind = serializers.ChoiceField(choices=TenantMeterReading.Kind.choices)
+    value = serializers.IntegerField(min_value=0, max_value=10**10)
+    photo = serializers.FileField(required=False)
+
+
+class LeaseRequestSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source="lease.property.name", read_only=True)
+    tenant_name = serializers.CharField(source="lease.tenant.full_name", read_only=True)
+
+    class Meta:
+        model = LeaseRequest
+        fields = ("id", "lease", "property_name", "tenant_name", "kind", "months", "move_out_date", "comment",
+                  "status", "landlord_comment", "created_at", "resolved_at")
+        read_only_fields = fields
+
+
+class LeaseRequestCreateSerializer(serializers.Serializer):
+    lease = serializers.IntegerField()
+    kind = serializers.ChoiceField(choices=LeaseRequest.Kind.choices)
+    months = serializers.IntegerField(min_value=1, max_value=60, required=False, allow_null=True)
+    move_out_date = serializers.DateField(required=False, allow_null=True)
+    comment = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
+
+
+class LeaseRequestResolveSerializer(serializers.Serializer):
+    comment = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")

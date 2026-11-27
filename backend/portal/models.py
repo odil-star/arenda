@@ -159,6 +159,8 @@ class TenantNotification(models.Model):
     class Kind(models.TextChoices):
         MEDIA_ADDED = "media_added", "Добавлены фото/видео"
         MEDIA_CHANGED = "media_changed", "Изменены фото/видео"
+        REPAIR_UPDATED = "repair_updated", "Обновлена заявка на ремонт"
+        REQUEST_RESOLVED = "request_resolved", "Ответ на просьбу о продлении/выезде"
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="tenant_notifications")
     kind = models.CharField(max_length=20, choices=Kind.choices)
@@ -170,3 +172,85 @@ class TenantNotification(models.Model):
     class Meta:
         ordering = ("-created_at", "-id")
         indexes = [models.Index(fields=["user", "read_at"])]
+
+
+def request_photo_upload_to(instance, filename):
+    import uuid
+    from pathlib import Path
+
+    return f"tenant_requests/{instance.owner_id}/{uuid.uuid4().hex}{Path(filename).suffix.lower()}"
+
+
+class RepairRequest(OwnedModel):
+    """Заявка жильца на ремонт: описание, необязательное фото и статус от арендодателя."""
+
+    class Status(models.TextChoices):
+        NEW = "new", "Новая"
+        IN_PROGRESS = "in_progress", "В работе"
+        DONE = "done", "Решена"
+        REJECTED = "rejected", "Отклонена"
+
+    lease = models.ForeignKey("leasing.Lease", on_delete=models.CASCADE, related_name="repair_requests")
+    title = models.CharField(max_length=120)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.NEW)
+    landlord_comment = models.CharField(max_length=255, blank=True)
+    photo = models.FileField(upload_to=request_photo_upload_to, max_length=255, blank=True)
+    photo_content_type = models.CharField(max_length=100, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+
+
+class TenantMeterReading(OwnedModel):
+    """Показание счётчика за месяц. Повторная отправка за тот же месяц заменяет значение."""
+
+    class Kind(models.TextChoices):
+        ELECTRICITY = "electricity", "Электричество"
+        WATER_COLD = "water_cold", "Холодная вода"
+        WATER_HOT = "water_hot", "Горячая вода"
+        GAS = "gas", "Газ"
+
+    lease = models.ForeignKey("leasing.Lease", on_delete=models.CASCADE, related_name="tenant_meter_readings")
+    kind = models.CharField(max_length=12, choices=Kind.choices)
+    period = models.DateField("Месяц (1-е число)")
+    value = models.PositiveBigIntegerField()
+    photo = models.FileField(upload_to=request_photo_upload_to, max_length=255, blank=True)
+    photo_content_type = models.CharField(max_length=100, blank=True)
+
+    class Meta:
+        ordering = ("-period", "kind", "-id")
+        constraints = [
+            models.UniqueConstraint(fields=["lease", "kind", "period"], name="tenant_meter_one_per_month"),
+        ]
+
+
+class LeaseRequest(OwnedModel):
+    """Просьба жильца продлить договор или о выезде; арендодатель принимает или отклоняет."""
+
+    class Kind(models.TextChoices):
+        EXTEND = "extend", "Продлить"
+        LEAVE = "leave", "Выезд"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Ожидает"
+        ACCEPTED = "accepted", "Принята"
+        DECLINED = "declined", "Отклонена"
+        CANCELLED = "cancelled", "Отменена"
+
+    lease = models.ForeignKey("leasing.Lease", on_delete=models.CASCADE, related_name="lease_requests")
+    kind = models.CharField(max_length=8, choices=Kind.choices)
+    months = models.PositiveSmallIntegerField(null=True, blank=True)
+    move_out_date = models.DateField(null=True, blank=True)
+    comment = models.CharField(max_length=500, blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    landlord_comment = models.CharField(max_length=255, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+        constraints = [
+            models.UniqueConstraint(fields=["lease"], condition=models.Q(status="pending"),
+                                    name="lease_request_one_pending"),
+        ]

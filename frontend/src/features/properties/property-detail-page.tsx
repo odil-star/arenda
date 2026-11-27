@@ -25,6 +25,7 @@ import { todayISO, useFormat } from "@/lib/format";
 import { InviteDialog } from "./invite-dialog";
 import { PropertyFormDialog } from "./property-form-dialog";
 import { PropertyPhotos } from "./property-photos";
+import { PropertyRequests } from "./property-requests";
 
 /*
  * Страница объекта — центр работы с арендой:
@@ -407,6 +408,7 @@ export function PropertyDetailPage() {
           ) : (
             <VacantCard property={p} onInvite={() => setInviting(true)} />
           )}
+          <PropertyRequests propertyId={p.id} />
           {leases.isSuccess && <LeaseHistory leases={history} />}
           <PropertyPhotos propertyId={p.id} isListed={p.is_listed} />
         </div>

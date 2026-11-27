@@ -115,8 +115,12 @@ export interface TenantMe {
   language: "ru" | "uz";
   has_password: boolean;
   telegram_linked: boolean;
+  /** жилец разрешил показывать обезличенную платёжную надёжность арендодателям с VIP */
+  share_reliability?: boolean;
   tours_seen?: string[];
-  landlords: { tenant: number; full_name: string; landlord_name: string }[];
+  landlords: { tenant: number; full_name: string; landlord_name: string; landlord_tier?: "free" | "prime" | "vip" }[];
+  /** VIP-арендодатель: свой бренд в кабинете жильца */
+  brands?: { tenant: number; name: string; has_logo: boolean }[];
 }
 
 export interface TenantLease {
@@ -124,6 +128,12 @@ export interface TenantLease {
   property_name: string;
   property_address: string;
   landlord_name: string;
+  /** телефон для связи (пусто — арендодатель не указал) */
+  landlord_phone: string;
+  /** на номере есть Telegram */
+  landlord_telegram: boolean;
+  /** правила дома и полезная информация */
+  house_rules: string;
   start_date: string;
   end_date: string;
   rent_amount: number;
@@ -162,7 +172,7 @@ export function useTenantMe(enabled = true) {
   });
 }
 
-export type TenantProfileInput = Partial<Pick<TenantMe, "first_name" | "last_name" | "phone" | "language">>;
+export type TenantProfileInput = Partial<Pick<TenantMe, "first_name" | "last_name" | "phone" | "language" | "share_reliability">>;
 
 /** Прогресс обучения (оба вида пользователей): сервер помнит, на каком шаге человек остановился и прошёл ли он обучение. */
 export function useSaveTourProgress() {
@@ -427,7 +437,7 @@ export function useTenantMedia(leaseId: number | undefined) {
 
 export interface TenantNotification {
   id: number;
-  kind: "media_added" | "media_changed";
+  kind: "media_added" | "media_changed" | "repair_updated" | "request_resolved";
   lease: number | null;
   property_name: string;
   count: number;
@@ -459,7 +469,7 @@ export function useMarkNotificationsRead() {
 /** Привязка Telegram жильца: код для бота / отвязка. */
 export function useTenantTelegramCode() {
   return useMutation({
-    mutationFn: async () => (await api.post<{ code: string; expires_at: string }>("/tenant/telegram-link/")).data,
+    mutationFn: async () => (await api.post<{ code: string; expires_at: string; bot_url?: string | null }>("/tenant/telegram-link/")).data,
   });
 }
 
