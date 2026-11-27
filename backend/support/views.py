@@ -3,7 +3,7 @@
 Пользователь (арендодатель или жилец): /api/support/… — только свой диалог.
 Сотрудник платформы: /api/admin/support/… — все диалоги; «поддержка» тоже может отвечать.
 """
-from django.db.models import Count, F, OuterRef, Q, Subquery
+from django.db.models import Case, Count, F, IntegerField, OuterRef, Q, Subquery, Value, When
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.admin_api import IsPlatformAdmin
+from core.tiers import owner_ids_with_tier
 from portal.throttling import hit
 
 from . import services
@@ -103,6 +104,15 @@ class SupportUnreadView(APIView):
 # --- сотрудники платформы ---------------------------------------------------------------------
 
 
+def priority_user_ids():
+    """Кому отвечаем в первую очередь: арендодатели Prime/VIP и их жильцы с подключённым кабинетом."""
+    from leasing.models import Tenant
+
+    owners = owner_ids_with_tier("prime")
+    tenants = set(Tenant.objects.filter(owner__in=owners, user__isnull=False).values_list("user_id", flat=True))
+    return owners | tenants
+
+
 def _admin_threads():
     last = SupportMessage.objects.filter(thread=OuterRef("pk")).order_by("-id")
     return (
@@ -135,7 +145,16 @@ class AdminSupportThreadViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin
     search_fields = ("user__email", "user__first_name", "user__last_name", "user__phone")
 
     def get_queryset(self):
-        return _admin_threads().order_by("-last_message_at", "-id")
+        # Prime и выше — первыми среди тех, кто ждёт ответа: открытые, где последним писал пользователь
+        priority = Case(
+            When(Q(user__in=priority_user_ids(), status=SupportThread.Status.OPEN, last_from_staff=False),
+                 then=Value(1)),
+            default=Value(0), output_field=IntegerField(),
+        )
+        return _admin_threads().annotate(_prio=priority).order_by("-_prio", "-last_message_at", "-id")
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), "priority_users": priority_user_ids()}
 
     @extend_schema(responses=OpenApiTypes.OBJECT)
     @action(detail=True, methods=["get"])

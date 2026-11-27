@@ -1,5 +1,5 @@
 import {
-  AirVent, ArrowRight, ArrowUpRight, BedDouble, Building2, CookingPot, DoorOpen, Flame, House, ImageOff, KeyRound, Layers,
+  AirVent, ArrowRight, ArrowUpRight, BedDouble, Building2, CookingPot, DoorOpen, Crown, Flame, Gem, House, ImageOff, KeyRound, Layers,
   Maximize2, MapPin, ChevronLeft, ChevronRight, Images, Microwave, Paintbrush, ParkingSquare, Refrigerator, Sofa, Sparkles, Tv, WashingMachine, Wifi, type LucideIcon,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -252,7 +252,13 @@ export function ListingCard({ listing, index = 0, variant = "grid" }: { listing:
     <article
       style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
       className={cn(
-        "group relative flex animate-rise-in overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition duration-300 [animation-fill-mode:backwards] hover:border-primary/40 hover:shadow-xl hover:shadow-black/5 focus-within:outline-2 focus-within:outline-ring dark:hover:shadow-black/40",
+        "group relative flex animate-rise-in overflow-hidden rounded-2xl border shadow-sm transition duration-300 [animation-fill-mode:backwards] hover:shadow-xl hover:shadow-black/5 focus-within:outline-2 focus-within:outline-ring dark:hover:shadow-black/40",
+        // платные тарифы заметны сразу: VIP — тёплый золотой фон и рамка, Prime — холодный голубой
+        listing.boost_tier === "vip"
+          ? "border-2 border-warning bg-warning-soft shadow-md shadow-warning/20 hover:border-warning"
+          : listing.boost_tier === "prime"
+            ? "border-2 border-info bg-info-soft shadow-md shadow-info/20 hover:border-info"
+            : "border-border bg-card hover:border-primary/40",
         isList ? "flex-col sm:flex-row" : "flex-col hover:-translate-y-1",
       )}
     >
@@ -265,6 +271,12 @@ export function ListingCard({ listing, index = 0, variant = "grid" }: { listing:
           <span className="rounded-full bg-background/90 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm backdrop-blur">
             {t(`properties.kind.${listing.kind}`)}
           </span>
+          {listing.boosted && (
+            <span className={cn("flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-white shadow-sm", listing.boost_tier === "vip" ? "bg-warning" : "bg-info")}>
+              {listing.boost_tier === "vip" ? <Crown className="size-3" aria-hidden /> : <Gem className="size-3" aria-hidden />}
+              {listing.boost_tier === "vip" ? "VIP" : "Prime"}
+            </span>
+          )}
           {isNew && (
             <span className="flex items-center gap-1 rounded-full bg-[linear-gradient(135deg,#8b5cf6,#d946ef_55%,#ec4899)] px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
               <Sparkles className="size-3" aria-hidden />

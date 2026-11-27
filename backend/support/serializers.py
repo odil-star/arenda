@@ -33,13 +33,18 @@ class AdminThreadSerializer(serializers.ModelSerializer):
     unread = serializers.IntegerField(read_only=True, default=0)
     last_body = serializers.CharField(read_only=True, default="")
     last_from_staff = serializers.BooleanField(read_only=True, default=False)
+    priority = serializers.SerializerMethodField()
 
     class Meta:
         model = SupportThread
         fields = (
-            "id", "user_id", "user_name", "user_email", "user_phone", "user_role", "status",
+            "id", "user_id", "user_name", "user_email", "user_phone", "user_role", "priority", "status",
             "unread", "last_body", "last_from_staff", "last_message_at", "created_at",
         )
+
+    def get_priority(self, obj) -> bool:
+        """Prime и выше: обращение отвечается в первую очередь."""
+        return obj.user_id in self.context.get("priority_users", ())
 
     def get_user_name(self, obj) -> str:
         return obj.user.get_full_name() or ""

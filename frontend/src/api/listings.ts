@@ -33,6 +33,10 @@ export interface Listing {
   /** дата регистрации владельца (YYYY-MM-DD) */
   owner_since: string;
   owner_listings: number;
+  /** Prime: объявление закреплено вверху ленты */
+  boosted?: boolean;
+  /** чей закреп: vip выше prime */
+  boost_tier?: "vip" | "prime" | null;
   photos: string[];
   created_at: ISODateTime;
   updated_at: ISODateTime;

@@ -37,6 +37,8 @@ export interface SupportThread {
   user_email: string;
   user_phone: string;
   user_role: "landlord" | "tenant";
+  /** Prime и выше: отвечаем первыми */
+  priority?: boolean;
   status: ThreadStatus;
   unread: number;
   last_body: string;

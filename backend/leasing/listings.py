@@ -9,12 +9,13 @@ from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
-from django.db.models import Count, Exists, Min, OuterRef, Prefetch, Q
+from django.db.models import Case, IntegerField, Count, Exists, Min, OuterRef, Prefetch, Q, Value, When
 from django.http import FileResponse, Http404, HttpResponseRedirect
 from rest_framework import permissions, serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from core.tiers import owner_ids_with_tier
 from portal.throttling import IPWindowThrottle
 
 from django.utils import timezone
@@ -23,6 +24,8 @@ from .models import Document, Lease, Property, SavedSearch
 
 
 SIMILAR_LIMIT = 10
+BOOST_LIMIT = 3  # Prime: сколько объявлений владельца закрепляется вверху ленты
+VIP_BOOST_LIMIT = None  # VIP: без ограничения — все свободные объявления всегда наверху, выше Prime
 
 
 class ListingBrowseThrottle(IPWindowThrottle):
@@ -119,6 +122,28 @@ def available_properties():
     )
 
 
+def _top_ids(owners, limit):
+    """Самые свежие свободные объявления каждого из владельцев, не больше `limit` на владельца."""
+    if not owners:
+        return []
+    if limit is None:
+        return list(available_properties().order_by().filter(owner__in=owners).values_list("pk", flat=True))
+    per_owner, ids = {}, []
+    rows = available_properties().order_by().filter(owner__in=owners).order_by("-updated_at", "-id")
+    for pk, owner_id in rows.values_list("pk", "owner_id"):
+        if per_owner.get(owner_id, 0) < limit:
+            per_owner[owner_id] = per_owner.get(owner_id, 0) + 1
+            ids.append(pk)
+    return ids
+
+
+def boost_ids():
+    """(VIP, Prime): закреплённые объявления. VIP — выше Prime и мест больше; владелец попадает в один из списков."""
+    vip = owner_ids_with_tier("vip")
+    prime = owner_ids_with_tier("prime") - vip
+    return _top_ids(vip, VIP_BOOST_LIMIT), _top_ids(prime, BOOST_LIMIT)
+
+
 class ListingSerializer(serializers.ModelSerializer):
     title = serializers.CharField(source="name")
     price = serializers.IntegerField(source="listing_price")
@@ -128,13 +153,21 @@ class ListingSerializer(serializers.ModelSerializer):
     owner_since = serializers.SerializerMethodField()
     owner_listings = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
+    boosted = serializers.SerializerMethodField()
+    boost_tier = serializers.SerializerMethodField()
 
     class Meta:
         model = Property
-        fields = ("id", "title", "address", "kind", "area_m2", "rooms", "price", "description", "phone", "has_telegram",
+        fields = ("id", "title", "boosted", "boost_tier", "address", "kind", "area_m2", "rooms", "price", "description", "phone", "has_telegram",
                   "floor", "floors_total", "renovation", "furniture", "amenities", "latitude", "longitude",
                   "owner", "owner_name", "owner_since",
                   "owner_listings", "photos", "created_at", "updated_at")
+
+    def get_boosted(self, obj) -> bool:
+        return bool(getattr(obj, "boost_rank", 0))
+
+    def get_boost_tier(self, obj) -> str | None:
+        return {2: "vip", 1: "prime"}.get(getattr(obj, "boost_rank", 0))
 
     def get_phone(self, obj):
         """Номер для связи: указанный в объявлении, иначе номер аккаунта владельца."""
@@ -170,7 +203,19 @@ class ListingViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ("-updated_at", "-id")
 
     def get_queryset(self):
-        return apply_filters(available_properties(), self.request.query_params)
+        qs = apply_filters(available_properties(), self.request.query_params)
+        vip, prime = boost_ids()
+        return qs.annotate(boost_rank=Case(
+            When(pk__in=vip, then=Value(2)), When(pk__in=prime, then=Value(1)),
+            default=Value(0), output_field=IntegerField(),
+        ))
+
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+        if "ordering" not in self.request.query_params:  # закреплённые — вверху ленты, дальше обычный порядок
+            return queryset.order_by("-boost_rank", "-updated_at", "-id")
+        # гость выбрал сортировку (в интерфейсе она есть всегда): VIP, затем Prime всё равно наверху, внутри групп — его порядок
+        return queryset.order_by("-boost_rank", *queryset.query.order_by)
 
     @action(detail=False, methods=["get"])
     def stats(self, request):
